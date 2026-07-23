@@ -1,0 +1,2 @@
+# Estos archivos se incluyen desde PHP, nunca se abren directo.
+Require all denied
