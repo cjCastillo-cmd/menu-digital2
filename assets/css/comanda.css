@@ -622,3 +622,29 @@ a { color: var(--ambar); }
   background:var(--linea); cursor:pointer; transition:transform .2s, background .2s;
 }
 .promos__punto.es-activo { background:var(--ambar); transform:scale(1.5); }
+
+/* Cabecera con foto de portada del negocio (hero) */
+.cabecera--hero {
+  position: relative;
+  margin: 0 -16px;
+  padding: 20px 16px 16px;
+  overflow: hidden;
+  isolation: isolate;
+  border-bottom: 1px solid var(--linea);
+}
+.cabecera--hero::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -2;
+  background: var(--portada) center/cover no-repeat;
+  filter: saturate(1.05);
+}
+.cabecera--hero::after {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--fondo) 45%, transparent) 0%,
+    color-mix(in srgb, var(--fondo) 80%, transparent) 60%,
+    var(--fondo) 100%);
+}
+.cabecera--hero .cabecera__nombre { text-shadow: 0 2px 18px color-mix(in srgb, var(--fondo) 88%, #000); }

@@ -52,6 +52,12 @@ function requiere_sesion(): array
     if (!$u) {
         ir('admin/entrar.php');
     }
+    // Si el negocio de la sesion ya no existe (BD recargada, negocio borrado),
+    // cerramos sesion en vez de reventar con un error fatal mas adelante.
+    if (function_exists('negocio_por_id') && negocio_por_id((int) ($u['negocio_id'] ?? 0)) === null) {
+        cerrar_sesion();
+        ir('admin/entrar.php');
+    }
     return $u;
 }
 

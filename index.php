@@ -58,6 +58,9 @@ $principales = array_values(array_filter($principales, $conContenido));
 $promos = todas('SELECT titulo, texto FROM promociones WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id',
                 [$negocioId]);
 
+// Foto de portada del negocio (si subió la suya). Va detrás de la cabecera.
+$portada = url_portada((string) $negocio['slug']);
+
 /** Pinta una tarjeta de platillo. $i controla el escalonado de aparición. */
 function pintar_platillo(array $p, array $negocio, int $i): void
 {
@@ -162,7 +165,7 @@ $datosNavegador = [
 
 <main class="envoltura">
 
-  <header class="cabecera">
+  <header class="cabecera<?= $portada ? ' cabecera--hero' : '' ?>"<?= $portada ? ' style="--portada:url(\'' . e($portada) . '\')"' : '' ?>>
     <div class="cabecera__meta">
       <span class="rotulo">
         <?= $mesa !== '' ? 'Mesa ' . e($mesa) : 'Menú' ?> · <?= date('H:i') ?>

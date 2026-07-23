@@ -19,6 +19,14 @@ function url(string $ruta = ''): string
     return rtrim(BASE_URL, '/') . '/' . ltrim($ruta, '/');
 }
 
+/** URL de la foto de portada del negocio (convencion: assets/img/portada-{slug}.jpg),
+ *  o null si ese negocio todavia no subio una. Cada negocio pone la suya. */
+function url_portada(string $slug): ?string
+{
+    $rel = 'assets/img/portada-' . preg_replace('/[^a-z0-9\-]/', '', mb_strtolower($slug)) . '.jpg';
+    return is_file(__DIR__ . '/../' . $rel) ? url($rel) : null;
+}
+
 /** Redirige y corta la ejecucion. */
 function ir(string $ruta): void
 {
