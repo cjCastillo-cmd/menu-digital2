@@ -38,19 +38,22 @@ INSERT INTO zonas (negocio_id, nombre, costo, orden) VALUES
 (@n, 'Zona Viva', 55, 2),
 (@n, 'Fuera de la ciudad', 90, 3);
 
--- Categorias (orden de lectura del menu)
+-- Categorias en el ORDEN ESTANDAR de un menu (como se come):
+-- entradas -> sopas -> platos fuertes -> postres -> bebidas.
 INSERT INTO categorias (negocio_id, nombre, orden) VALUES
-(@n, 'Mariscos y costeñas', 1),
-(@n, 'Parrilla y cortes', 2),
-(@n, 'Entradas', 3),
-(@n, 'Bebidas', 4),
-(@n, 'Postres', 5);
+(@n, 'Entradas', 1),
+(@n, 'Sopas costeñas', 2),
+(@n, 'Del mar', 3),
+(@n, 'Parrilla y cortes', 4),
+(@n, 'Postres', 5),
+(@n, 'Bebidas', 6);
 
-SET @c_mar = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Mariscos y costeñas');
-SET @c_par = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Parrilla y cortes');
 SET @c_ent = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Entradas');
-SET @c_beb = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Bebidas');
+SET @c_sop = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Sopas costeñas');
+SET @c_mar = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Del mar');
+SET @c_par = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Parrilla y cortes');
 SET @c_pos = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Postres');
+SET @c_beb = (SELECT id FROM categorias WHERE negocio_id=@n AND nombre='Bebidas');
 
 -- Grupos de opciones
 INSERT INTO grupos (negocio_id, nombre, tipo, obligatorio, minimo, maximo, escala_por_tamano, orden) VALUES
@@ -84,11 +87,14 @@ INSERT INTO opciones (grupo_id, nombre, precio, orden) VALUES
 -- ------------------------------------------------------------
 --  Productos
 -- ------------------------------------------------------------
--- Mariscos y costeñas
+-- Sopas costeñas
 INSERT INTO productos (negocio_id, categoria_id, nombre, descripcion, precio, destacado, etiquetas, orden) VALUES
-(@n, @c_mar, 'Sopa de caracol', 'Caracol, leche de coco, yuca y plátano. La reina de la costa.', 260, 1, NULL, 1),
-(@n, @c_mar, 'Sopa marinera', 'Camarón, pescado, caracol y jaiba en caldo de coco.', 290, 1, NULL, 2),
-(@n, @c_mar, 'Tapado costeño', 'Guiso de mariscos y carne salada en leche de coco.', 320, 0, NULL, 3),
+(@n, @c_sop, 'Sopa de caracol', 'Caracol, leche de coco, yuca y plátano. La reina de la costa.', 260, 1, NULL, 1),
+(@n, @c_sop, 'Sopa marinera', 'Camarón, pescado, caracol y jaiba en caldo de coco.', 290, 1, NULL, 2),
+(@n, @c_sop, 'Tapado costeño', 'Guiso de mariscos y carne salada en leche de coco.', 320, 0, NULL, 3);
+
+-- Del mar
+INSERT INTO productos (negocio_id, categoria_id, nombre, descripcion, precio, destacado, etiquetas, orden) VALUES
 (@n, @c_mar, 'Pescado frito entero', 'Servido con tajadas, ensalada y chismol.', 240, 1, NULL, 4),
 (@n, @c_mar, 'Filete de pescado a la plancha', 'Corvina a la plancha con mantequilla de ajo.', 230, 0, NULL, 5),
 (@n, @c_mar, 'Camarones al ajillo', 'Camarón salteado en ajo y mantequilla.', 275, 1, NULL, 6),

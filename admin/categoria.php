@@ -72,9 +72,11 @@ cabecera_panel('Categorias', 'categorias', $negocio);
 <div class="bloque">
   <h2>Categorias del menu</h2>
   <p class="ayuda">
-    Son las secciones de tu carta. Cada negocio arma las suyas: podes separar
-    Bebidas en "Tragos", "Naturales" y "Gaseosas", o crear "Entradas frias" y
-    "Entradas calientes". El numero de orden decide como se leen de arriba a abajo.
+    Son las secciones de tu carta. El orden recomendado sigue cómo se come:
+    <strong>Entradas → Sopas → Ensaladas → Platos fuertes → Guarniciones →
+    Postres → Bebidas</strong>. El número de orden decide cómo se leen de arriba
+    a abajo; las bebidas siempre al final. Podés separar Bebidas en "Naturales" y
+    "Cervezas y tragos", o los platos fuertes por tipo (Del mar, Parrilla).
   </p>
 
   <form method="post">
@@ -121,6 +123,32 @@ cabecera_panel('Categorias', 'categorias', $negocio);
     </form>
   <?php endforeach; ?>
 </div>
+
+<?php
+// Sugeridas en orden estándar; se ocultan las que ya existen.
+$sugeridas = ['Entradas', 'Sopas', 'Ensaladas', 'Platos fuertes',
+              'Guarniciones', 'Postres', 'Bebidas'];
+$existentes = array_map(static function ($c) { return mb_strtolower($c['nombre']); }, $cats);
+$faltan = array_filter($sugeridas, static function ($s) use ($existentes) {
+    return !in_array(mb_strtolower($s), $existentes, true);
+});
+?>
+<?php if ($faltan): ?>
+<div class="bloque">
+  <h2>Categorías sugeridas</h2>
+  <p class="ayuda">Agregá las secciones estándar de un menú con un toque. Se crean en orden.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <?php foreach ($faltan as $s): ?>
+      <form method="post" style="display:inline">
+        <input type="hidden" name="token" value="<?= e(token()) ?>">
+        <input type="hidden" name="accion" value="crear">
+        <input type="hidden" name="nombre" value="<?= e($s) ?>">
+        <button class="mini mini--activo" type="submit">+ <?= e($s) ?></button>
+      </form>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="bloque">
   <h2>Agregar categoria</h2>
