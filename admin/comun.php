@@ -7,10 +7,11 @@ function cabecera_panel(string $titulo, string $activo, array $negocio): void
 {
     $u = usuario();
     $paginas = [
-        'carta'   => ['Carta', 'index.php'],
-        'cocina'  => ['Cocina', 'cocina.php'],
-        'negocio' => ['Negocio', 'negocio.php'],
-        'qr'      => ['Codigos QR', 'qr.php'],
+        'carta'      => ['Carta', 'index.php'],
+        'categorias' => ['Categorias', 'categoria.php'],
+        'cocina'     => ['Cocina', 'cocina.php'],
+        'negocio'    => ['Negocio', 'negocio.php'],
+        'qr'         => ['Codigos QR', 'qr.php'],
     ];
     $aviso = tomar_aviso();
     ?>

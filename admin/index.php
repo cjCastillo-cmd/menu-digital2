@@ -92,7 +92,14 @@ cabecera_panel('Carta', 'carta', $negocio);
         <tr><th>Platillo</th><th>Categoría</th><th>Precio</th><th></th></tr>
       </thead>
       <tbody>
-      <?php foreach ($productos as $p): ?>
+      <?php $catActual = null; foreach ($productos as $p): ?>
+        <?php if ($p['categoria'] !== $catActual): $catActual = $p['categoria']; ?>
+          <tr>
+            <td colspan="4" style="padding-top:16px">
+              <span class="rotulo"><?= e($catActual) ?></span>
+            </td>
+          </tr>
+        <?php endif; ?>
         <tr>
           <td>
             <input type="hidden" name="id[]" value="<?= (int) $p['id'] ?>">

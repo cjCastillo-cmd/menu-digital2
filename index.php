@@ -27,6 +27,11 @@ foreach ($cat['productos'] as $id => $p) {
     $porCategoria[(int) $p['categoria_id']][] = $p;
 }
 
+// Solo mostramos categorias que tienen al menos un platillo.
+$cats = array_values(array_filter($cats, static function ($c) use ($porCategoria) {
+    return !empty($porCategoria[(int) $c['id']]);
+}));
+
 $datosNavegador = [
     'negocio'  => [
         'nombre'   => $negocio['nombre'],
