@@ -15,10 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($accion === 'datos') {
         $impuesto = decimal($_POST['impuesto'] ?? 0);
         $impuesto = max(0, min(1, $impuesto));
+        $tema = in_array($_POST['tema'] ?? '', TEMAS, true) ? $_POST['tema'] : 'comanda';
         consulta(
             'UPDATE negocios
                 SET nombre=?, tagline=?, whatsapp=?, moneda=?, impuesto=?,
-                    color_fondo=?, color_acento=?
+                    tema=?, color_fondo=?, color_acento=?
               WHERE id=?',
             [
                 mb_substr(trim((string) ($_POST['nombre'] ?? '')), 0, 120),
@@ -26,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 preg_replace('/\D/', '', (string) ($_POST['whatsapp'] ?? '')),
                 mb_substr(trim((string) ($_POST['moneda'] ?? 'L')), 0, 5),
                 $impuesto,
+                $tema,
                 color_hex($_POST['color_fondo'] ?? null),
                 color_hex($_POST['color_acento'] ?? null),
                 $negocioId,
@@ -111,6 +113,17 @@ cabecera_panel('Negocio', 'negocio', $negocio);
         <input id="impuesto" name="impuesto" type="number" step="0.01" min="0" max="1"
                value="<?= e($negocio['impuesto']) ?>">
       </div>
+    </div>
+    <div class="campo">
+      <label class="campo__rotulo" for="tema">Diseño de la carta</label>
+      <select id="tema" name="tema">
+        <option value="comanda"<?= ($negocio['tema'] ?? 'comanda') === 'comanda' ? ' selected' : '' ?>>
+          Comanda — tipografía monoespaciada, estilo ticket (informal)
+        </option>
+        <option value="elegante"<?= ($negocio['tema'] ?? '') === 'elegante' ? ' selected' : '' ?>>
+          Elegante — serif de autor y fotos grandes (premium)
+        </option>
+      </select>
     </div>
     <div class="dos">
       <div class="campo">

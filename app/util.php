@@ -83,6 +83,28 @@ function decimal($valor, float $porDefecto = 0.0): float
     return is_numeric($valor) ? (float) $valor : $porDefecto;
 }
 
+/** Temas de carta disponibles para el cliente. */
+const TEMAS = ['comanda', 'elegante'];
+
+/** Devuelve el tema del negocio validado (por defecto 'comanda'). */
+function tema_valido(array $negocio): string
+{
+    $t = (string) ($negocio['tema'] ?? 'comanda');
+    return in_array($t, TEMAS, true) ? $t : 'comanda';
+}
+
+/** URL de Google Fonts segun el tema. */
+function url_fuentes(string $tema): string
+{
+    if ($tema === 'elegante') {
+        return 'https://fonts.googleapis.com/css2?'
+             . 'family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700'
+             . '&family=Fraunces:opsz,wght@9..144,500;9..144,600'
+             . '&display=swap';
+    }
+    return 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap';
+}
+
 /** Valida un color hexadecimal (#rgb / #rrggbb / #rrggbbaa) o devuelve null. */
 function color_hex($valor): ?string
 {

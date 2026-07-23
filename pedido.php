@@ -35,6 +35,7 @@ if ($pedido) {
 
 $volver = url('index.php?r=' . urlencode($negocio['slug'])
         . (!empty($carga['mesa']) ? '&mesa=' . urlencode($carga['mesa']) : ''));
+$tema = tema_valido($negocio);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -45,8 +46,8 @@ $volver = url('index.php?r=' . urlencode($negocio['slug'])
 <title><?= $error ? 'No se pudo enviar' : 'Pedido ' . e($pedido['codigo']) ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="<?= url('assets/css/comanda.css') ?>">
+<link href="<?= e(url_fuentes($tema)) ?>" rel="stylesheet">
+<link rel="stylesheet" href="<?= url('assets/css/' . $tema . '.css') ?>">
 <?= estilo_marca($negocio) ?>
 </head>
 <body>

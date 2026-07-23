@@ -16,6 +16,7 @@ if (!$negocio) {
 }
 
 $negocioId = (int) $negocio['id'];
+$tema      = tema_valido($negocio);
 $cat       = catalogo($negocioId);
 $cats      = categorias($negocioId);
 $abierto   = esta_abierto($negocioId);
@@ -51,8 +52,8 @@ $datosNavegador = [
 <meta name="description" content="Menú de <?= e($negocio['nombre']) ?>. Escaneá, elegí y enviá tu pedido.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="<?= url('assets/css/comanda.css') ?>">
+<link href="<?= e(url_fuentes($tema)) ?>" rel="stylesheet">
+<link rel="stylesheet" href="<?= url('assets/css/' . $tema . '.css') ?>">
 <?= estilo_marca($negocio) ?>
 </head>
 <body>
@@ -92,11 +93,13 @@ $datosNavegador = [
       <h2 class="seccion__titulo"><?= e($c['nombre']) ?></h2>
       <p class="seccion__nota"><?= count($items) ?> <?= count($items) === 1 ? 'opción' : 'opciones' ?></p>
 
-      <?php foreach ($items as $p):
+      <?php $k = 0; foreach ($items as $p):
           $agotado = (int) $p['disponible'] !== 1;
           $desde   = !empty($p['grupos']) ? 'desde ' : '';
-          $foto    = url_imagen_producto($p['imagen'] ?? null); ?>
+          $foto    = url_imagen_producto($p['imagen'] ?? null);
+          $k++; ?>
         <button class="platillo<?= $foto ? ' platillo--foto' : '' ?>" type="button"
+                style="--i:<?= min($k, 12) ?>"
                 data-prod="<?= (int) $p['id'] ?>" <?= $agotado ? 'disabled' : '' ?>>
           <?php if ($foto): ?>
             <img class="platillo__foto" src="<?= e($foto) ?>" alt="" loading="lazy" width="88" height="88">

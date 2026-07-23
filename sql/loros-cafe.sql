@@ -11,9 +11,9 @@ USE menu_digital;
 -- Si ya existe, lo borramos para poder recargarlo limpio.
 DELETE FROM negocios WHERE slug = 'loros-cafe';
 
-INSERT INTO negocios (slug, nombre, tagline, whatsapp, moneda, impuesto, color_fondo, color_acento) VALUES
+INSERT INTO negocios (slug, nombre, tagline, whatsapp, moneda, impuesto, tema, color_fondo, color_acento) VALUES
 ('loros-cafe', "Loro's Café", 'Sabor costeño y parrilla / La Ceiba',
- '50499999999', 'L', 0.150, '#123524', '#F4C430');
+ '50499999999', 'L', 0.150, 'elegante', '#123524', '#F4C430');
 
 SET @n = LAST_INSERT_ID();
 
