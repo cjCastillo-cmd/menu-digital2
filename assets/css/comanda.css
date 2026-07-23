@@ -596,3 +596,29 @@ a { color: var(--ambar); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Carrusel de promociones (marketing) */
+.promos { position:relative; margin:14px 0 4px; }
+.promos__pista {
+  display:flex; overflow-x:auto; scroll-snap-type:x mandatory;
+  scroll-behavior:smooth; gap:0; scrollbar-width:none; -ms-overflow-style:none;
+  border-radius:10px;
+}
+.promos__pista::-webkit-scrollbar { display:none; }
+.promo {
+  flex:0 0 100%; scroll-snap-align:center; box-sizing:border-box;
+  display:flex; flex-direction:column; gap:4px; min-height:52px;
+  padding:12px 14px; border:1px dashed var(--ambar);
+  border-radius:10px;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 12px, color-mix(in srgb,var(--ambar) 5%,transparent) 12px 13px),
+    color-mix(in srgb, var(--ambar) 12%, var(--fondo2));
+}
+.promo__titulo { font-weight:600; color:var(--ambar); letter-spacing:.02em; }
+.promo__texto  { color:var(--suave); font-size:13px; }
+.promos__puntos { display:flex; justify-content:center; gap:7px; margin-top:9px; }
+.promos__punto {
+  width:7px; height:7px; padding:0; border:0; border-radius:50%;
+  background:var(--linea); cursor:pointer; transition:transform .2s, background .2s;
+}
+.promos__punto.es-activo { background:var(--ambar); transform:scale(1.5); }

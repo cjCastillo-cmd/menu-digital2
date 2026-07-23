@@ -102,6 +102,9 @@ $tema = tema_valido($negocio);
       <?php if ($pedido['envio'] > 0): ?>
         <div class="ticket__total"><span>Envío</span><span><?= dinero($pedido['envio'], $negocio['moneda']) ?></span></div>
       <?php endif; ?>
+      <?php if ($pedido['descuento'] > 0): ?>
+        <div class="ticket__total"><span>Descuento<?= $pedido['cupon'] ? ' (' . e($pedido['cupon']) . ')' : '' ?></span><span>-<?= dinero($pedido['descuento'], $negocio['moneda']) ?></span></div>
+      <?php endif; ?>
       <?php if ($pedido['propina'] > 0): ?>
         <div class="ticket__total"><span>Propina</span><span><?= dinero($pedido['propina'], $negocio['moneda']) ?></span></div>
       <?php endif; ?>

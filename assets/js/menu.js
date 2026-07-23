@@ -13,7 +13,7 @@
   D.catalogo.productos.forEach(function (p) { PROD[p.id] = p; });
   D.catalogo.grupos.forEach(function (g) { GRUPO[g.id] = g; });
 
-  var estado = { modo: "mesa", zona: (D.zonas[0] || {}).nombre || "", carrito: [], borrador: null, propinaPct: 0 };
+  var estado = { modo: "mesa", zona: (D.zonas[0] || {}).nombre || "", carrito: [], borrador: null, propinaPct: 0, cupon: "" };
 
   function esc(t) {
     return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
@@ -87,10 +87,22 @@
     return Math.round(total);
   }
 
+  function subtotalActual() {
+    return estado.carrito.reduce(function (s, l) { return s + l.precio * l.cantidad; }, 0);
+  }
+
   function envio() {
     if (estado.modo !== "domicilio") { return 0; }
-    var z = D.zonas.filter(function (x) { return x.nombre === estado.zona; })[0];
-    return z ? z.costo : 0;
+    var n = D.negocio, base;
+    if (n.envioModo === "gratis") { base = 0; }
+    else if (n.envioModo === "fijo") { base = n.envioFijo || 0; }
+    else {
+      var z = D.zonas.filter(function (x) { return x.nombre === estado.zona; })[0];
+      base = z ? z.costo : 0;
+    }
+    // Envio gratis a partir de cierto monto (si el dueno lo activo).
+    if (n.envioGratisDesde != null && subtotalActual() >= n.envioGratisDesde) { base = 0; }
+    return base;
   }
 
   function totales() {
@@ -366,13 +378,48 @@
       campos = '<div class="campo"><label class="campo__rotulo" for="cHora">¿A qué hora lo recogés?</label>' +
         '<input id="cHora" type="time"></div>';
     } else {
-      campos = '<div class="campo"><label class="campo__rotulo" for="cZona">Zona de entrega</label><select id="cZona">' +
-        D.zonas.map(function (z) {
-          return '<option value="' + esc(z.nombre) + '"' + (z.nombre === estado.zona ? " selected" : "") + ">" +
-            esc(z.nombre) + " · " + dinero(z.costo) + "</option>";
-        }).join("") + "</select></div>" +
-        '<div class="campo"><label class="campo__rotulo" for="cDir">Dirección y referencia</label>' +
+      var n = D.negocio, dm = "";
+      if (n.envioModo === "zonas") {
+        dm = '<div class="campo"><label class="campo__rotulo" for="cZona">Zona de entrega</label><select id="cZona">' +
+          D.zonas.map(function (z) {
+            return '<option value="' + esc(z.nombre) + '"' + (z.nombre === estado.zona ? " selected" : "") + ">" +
+              esc(z.nombre) + " · " + dinero(z.costo) + "</option>";
+          }).join("") + "</select></div>";
+      } else {
+        var et = n.envioModo === "gratis" ? "Envío gratis" : "Envío " + dinero(n.envioFijo || 0);
+        dm = '<div class="campo"><span class="campo__rotulo">Envío</span><strong>' + esc(et) + "</strong></div>";
+      }
+      campos = dm +
+        '<div class="campo"><label class="campo__rotulo" for="cDir">Dirección y referencia *</label>' +
         '<textarea id="cDir" maxlength="300" placeholder="Casa portón negro, frente a la pulpería"></textarea></div>';
+    }
+
+    // Upsell: si el pedido no lleva ninguna bebida, sugerimos una.
+    var tieneBebida = estado.carrito.some(function (l) { return (D.bebidaIds || []).indexOf(l.producto_id) > -1; });
+    var upsell = "";
+    if (!tieneBebida && (D.sugeridos || []).length) {
+      upsell = '<div class="campo"><span class="campo__rotulo">¿Le agregás algo de tomar?</span>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        D.sugeridos.map(function (s) {
+          return '<button class="mini mini--activo" type="button" data-sugerido="' + s.id + '">+ ' +
+            esc(s.nombre) + " · " + dinero(s.precio) + "</button>";
+        }).join("") + "</div></div>";
+    }
+
+    // Incentivos y avisos para domicilio.
+    var incentivo = "";
+    if (estado.modo === "domicilio") {
+      var nn = D.negocio, sub = t.sub;
+      if (nn.pedidoMinimo > 0 && sub < nn.pedidoMinimo) {
+        incentivo += '<p class="nota-pie nota-pie--alerta">Pedido mínimo a domicilio: ' + dinero(nn.pedidoMinimo) +
+          ". Te faltan " + dinero(nn.pedidoMinimo - sub) + ".</p>";
+      }
+      if (nn.envioGratisDesde != null && sub < nn.envioGratisDesde) {
+        incentivo += '<p class="nota-pie">Agregá ' + dinero(nn.envioGratisDesde - sub) + " más y el envío es gratis.</p>";
+      }
+    }
+    if ((estado.modo === "domicilio" || estado.modo === "llevar") && D.negocio.tiempoEstimado) {
+      incentivo += '<p class="nota-pie">Tiempo estimado: ' + esc(D.negocio.tiempoEstimado) + ".</p>";
     }
 
     $("#cuerpoPedido").innerHTML =
@@ -394,8 +441,14 @@
           '<input id="cTel" maxlength="30" inputmode="tel" autocomplete="tel"></div>' +
       "</div>" +
       campos +
+      upsell +
       '<div class="campo"><label class="campo__rotulo" for="cPago">Forma de pago</label>' +
-        '<select id="cPago"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option></select></div>' +
+        '<select id="cPago">' +
+          (D.negocio.formasPago || ["Efectivo"]).map(function (fp) { return "<option>" + esc(fp) + "</option>"; }).join("") +
+        "</select></div>" +
+      '<div class="campo"><label class="campo__rotulo" for="cCupon">¿Tenés un cupón?</label>' +
+        '<input id="cCupon" maxlength="30" value="' + esc(estado.cupon) + '" placeholder="Código de descuento" style="text-transform:uppercase">' +
+        '<span class="nota-pie" style="display:block">El descuento se aplica al confirmar.</span></div>' +
       '<div class="campo"><span class="campo__rotulo">Propina (opcional)</span>' +
         '<div class="modos">' +
           [0, 0.10, 0.15, 0.20].map(function (pp) {
@@ -403,6 +456,8 @@
               (pp ? Math.round(pp * 100) + "%" : "Sin propina") + "</button>";
           }).join("") +
         "</div></div>" +
+      incentivo +
+      '<p class="nota-pie nota-pie--alerta" id="avisoPedido" style="display:none"></p>' +
       (D.abierto ? "" : '<p class="nota-pie nota-pie--alerta">El local está cerrado. Podés enviar el pedido y te confirmarán al abrir.</p>') +
       '<div class="pie"><button class="accion" id="enviar" type="button">' +
         "<span>Enviar el pedido</span><span>" + dinero(t.total) + "</span></button></div>" +
@@ -412,7 +467,22 @@
   function enviar() {
     if (!estado.carrito.length) { return; }
     var v = function (id) { var el = $(id); return el ? el.value.trim() : ""; };
+    var aviso = function (msg) {
+      var a = $("#avisoPedido");
+      if (a) { a.textContent = msg; a.style.display = "block"; a.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    };
 
+    // A domicilio: datos del cliente obligatorios + pedido minimo.
+    if (estado.modo === "domicilio") {
+      if (!v("#cNombre") || !v("#cTel") || !v("#cDir")) {
+        aviso("Para envío a domicilio necesitamos tu nombre, teléfono y dirección."); return;
+      }
+      if (D.negocio.pedidoMinimo > 0 && subtotalActual() < D.negocio.pedidoMinimo) {
+        aviso("El pedido mínimo a domicilio es " + dinero(D.negocio.pedidoMinimo) + "."); return;
+      }
+    }
+
+    estado.cupon = v("#cCupon").toUpperCase();
     var nota = estado.modo === "llevar" && v("#cHora") ? "Recoge a las " + v("#cHora") : "";
 
     var carga = {
@@ -424,6 +494,7 @@
       direccion: v("#cDir"),
       pago: v("#cPago"),
       propina_pct: estado.propinaPct,
+      cupon: estado.cupon,
       nota: nota,
       lineas: estado.carrito.map(function (l) {
         return {
@@ -529,6 +600,12 @@
       return;
     }
 
+    if ((el = ev.target.closest("[data-sugerido]"))) {
+      cerrar();
+      setTimeout(function () { abrirPlatillo(+el.dataset.sugerido); }, 260);
+      return;
+    }
+
     if ((el = ev.target.closest("[data-propina]"))) {
       estado.propinaPct = parseFloat(el.dataset.propina) || 0;
       pintarPedido();
@@ -547,9 +624,82 @@
     if (ev.target.id === "cZona") { estado.zona = ev.target.value; pintarPedido(); }
   });
 
+  // Recordamos el cupón mientras se escribe (para que no se pierda al redibujar).
+  document.addEventListener("input", function (ev) {
+    if (ev.target.id === "cCupon") { estado.cupon = ev.target.value.toUpperCase(); }
+  });
+
   document.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape") { cerrar(); }
   });
 
   pintarBarra();
+})();
+
+/* Carrusel de promociones: auto-avance con puntos, pausa al interactuar. */
+(function () {
+  var promos = document.getElementById("promos");
+  if (!promos) { return; }
+  var pista = document.getElementById("promosPista");
+  var total = parseInt(promos.getAttribute("data-total") || "0", 10);
+  if (!pista || total < 2) { return; }
+
+  var puntos = Array.prototype.slice.call(document.querySelectorAll(".promos__punto"));
+  var actual = 0;
+  var timer = null;
+
+  function anchoSlide() { return pista.clientWidth; }
+
+  function marcar(i) {
+    actual = (i + total) % total;
+    puntos.forEach(function (p, k) {
+      var on = k === actual;
+      p.classList.toggle("es-activo", on);
+      p.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+
+  function irA(i, suave) {
+    marcar(i);
+    pista.scrollTo({ left: actual * anchoSlide(), behavior: suave === false ? "auto" : "smooth" });
+  }
+
+  function arrancar() {
+    detener();
+    timer = setInterval(function () { irA(actual + 1); }, 4500);
+  }
+  function detener() { if (timer) { clearInterval(timer); timer = null; } }
+
+  // Al hacer scroll manual (swipe), sincroniza el punto activo.
+  var raf = null;
+  pista.addEventListener("scroll", function () {
+    if (raf) { return; }
+    raf = requestAnimationFrame(function () {
+      raf = null;
+      var i = Math.round(pista.scrollLeft / anchoSlide());
+      if (i !== actual) { marcar(i); }
+    });
+  });
+
+  puntos.forEach(function (p) {
+    p.addEventListener("click", function () {
+      irA(parseInt(p.getAttribute("data-ir"), 10));
+      arrancar();
+    });
+  });
+
+  // Pausa mientras el dedo/cursor está encima; retoma al soltar.
+  ["mouseenter", "touchstart", "focusin"].forEach(function (ev) {
+    promos.addEventListener(ev, detener, { passive: true });
+  });
+  ["mouseleave", "touchend", "focusout"].forEach(function (ev) {
+    promos.addEventListener(ev, arrancar, { passive: true });
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { detener(); } else { arrancar(); }
+  });
+  window.addEventListener("resize", function () { irA(actual, false); });
+
+  marcar(0);
+  arrancar();
 })();

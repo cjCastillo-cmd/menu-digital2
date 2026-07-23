@@ -37,6 +37,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ir('admin/negocio.php');
     }
 
+    if ($accion === 'domicilio') {
+        $modo = in_array($_POST['envio_modo'] ?? '', ['zonas', 'fijo', 'gratis'], true)
+              ? $_POST['envio_modo'] : 'zonas';
+        $gratisDesde = trim((string) ($_POST['envio_gratis_desde'] ?? ''));
+        $formas = trim((string) ($_POST['formas_pago'] ?? ''));
+        if ($formas === '') { $formas = 'Efectivo'; }
+        consulta(
+            'UPDATE negocios
+                SET envio_modo=?, envio_fijo=?, pedido_minimo=?, envio_gratis_desde=?,
+                    tiempo_estimado=?, formas_pago=?
+              WHERE id=?',
+            [
+                $modo,
+                max(0, decimal($_POST['envio_fijo'] ?? 0)),
+                max(0, decimal($_POST['pedido_minimo'] ?? 0)),
+                $gratisDesde === '' ? null : max(0, decimal($gratisDesde)),
+                mb_substr(trim((string) ($_POST['tiempo_estimado'] ?? '')), 0, 40) ?: null,
+                mb_substr($formas, 0, 200),
+                $negocioId,
+            ]
+        );
+        avisar('Envío y formas de pago guardados.');
+        ir('admin/negocio.php');
+    }
+
     if ($accion === 'horario') {
         foreach ($dias as $dia => $nombre) {
             $cerrado = isset($_POST['cerrado'][$dia]) ? 1 : 0;
@@ -139,6 +164,50 @@ cabecera_panel('Negocio', 'negocio', $negocio);
     </div>
     <p class="ayuda">Con estos dos colores la carta se pinta con la identidad del negocio.</p>
     <div class="pie"><button class="accion" type="submit"><span>Guardar datos</span><span>&rarr;</span></button></div>
+  </form>
+</div>
+
+<div class="bloque">
+  <h2>Envío a domicilio y pago</h2>
+  <p class="ayuda">Vos decidís cómo cobrar el envío: por zona, un precio fijo o gratis. El pedido
+    mínimo y el envío gratis por monto son opcionales.</p>
+  <form method="post">
+    <input type="hidden" name="token" value="<?= e(token()) ?>">
+    <input type="hidden" name="accion" value="domicilio">
+    <div class="dos">
+      <div class="campo" style="margin-top:0">
+        <label class="campo__rotulo" for="envio_modo">Costo del envío</label>
+        <select id="envio_modo" name="envio_modo">
+          <option value="zonas"<?= ($negocio['envio_modo'] ?? 'zonas') === 'zonas' ? ' selected' : '' ?>>Por zona (abajo)</option>
+          <option value="fijo"<?= ($negocio['envio_modo'] ?? '') === 'fijo' ? ' selected' : '' ?>>Un precio fijo</option>
+          <option value="gratis"<?= ($negocio['envio_modo'] ?? '') === 'gratis' ? ' selected' : '' ?>>Siempre gratis</option>
+        </select>
+      </div>
+      <div class="campo" style="margin-top:0">
+        <label class="campo__rotulo" for="envio_fijo">Precio fijo de envío</label>
+        <input id="envio_fijo" name="envio_fijo" type="number" min="0" step="1" value="<?= (int) ($negocio['envio_fijo'] ?? 0) ?>">
+      </div>
+    </div>
+    <div class="dos">
+      <div class="campo">
+        <label class="campo__rotulo" for="pedido_minimo">Pedido mínimo a domicilio (0 = sin mínimo)</label>
+        <input id="pedido_minimo" name="pedido_minimo" type="number" min="0" step="1" value="<?= (int) ($negocio['pedido_minimo'] ?? 0) ?>">
+      </div>
+      <div class="campo">
+        <label class="campo__rotulo" for="envio_gratis_desde">Envío gratis desde (vacío = nunca)</label>
+        <input id="envio_gratis_desde" name="envio_gratis_desde" type="number" min="0" step="1" value="<?= $negocio['envio_gratis_desde'] !== null ? (int) $negocio['envio_gratis_desde'] : '' ?>">
+      </div>
+    </div>
+    <div class="campo">
+      <label class="campo__rotulo" for="tiempo_estimado">Tiempo estimado (ej: 30-45 min)</label>
+      <input id="tiempo_estimado" name="tiempo_estimado" maxlength="40" value="<?= e($negocio['tiempo_estimado'] ?? '') ?>">
+    </div>
+    <div class="campo">
+      <label class="campo__rotulo" for="formas_pago">Formas de pago (separadas por coma)</label>
+      <input id="formas_pago" name="formas_pago" maxlength="200" value="<?= e($negocio['formas_pago'] ?? 'Efectivo,Tarjeta,Transferencia') ?>"
+             placeholder="Efectivo, Tarjeta, Transferencia, Pago móvil">
+    </div>
+    <div class="pie" style="border-top:0"><button class="accion" type="submit"><span>Guardar envío y pago</span><span>&rarr;</span></button></div>
   </form>
 </div>
 

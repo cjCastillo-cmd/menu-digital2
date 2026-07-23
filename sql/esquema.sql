@@ -20,6 +20,13 @@ CREATE TABLE negocios (
   whatsapp      VARCHAR(20)  NOT NULL,
   moneda        VARCHAR(5)   NOT NULL DEFAULT 'L',
   impuesto      DECIMAL(4,3) NOT NULL DEFAULT 0.150,
+  -- Envio a domicilio (a criterio del dueño)
+  envio_modo         ENUM('zonas','fijo','gratis') NOT NULL DEFAULT 'zonas',
+  envio_fijo         DECIMAL(10,2) NOT NULL DEFAULT 0,
+  pedido_minimo      DECIMAL(10,2) NOT NULL DEFAULT 0,
+  envio_gratis_desde DECIMAL(10,2) NULL,
+  tiempo_estimado    VARCHAR(40) NULL,
+  formas_pago   VARCHAR(200) NOT NULL DEFAULT 'Efectivo,Tarjeta,Transferencia',
   tema          VARCHAR(30)  NOT NULL DEFAULT 'comanda',
   color_fondo   VARCHAR(9)   DEFAULT NULL,   -- color de marca (fondo)
   color_acento  VARCHAR(9)   DEFAULT NULL,   -- color de marca (acento)
@@ -158,12 +165,41 @@ CREATE TABLE pedidos (
   impuesto   DECIMAL(10,2) NOT NULL DEFAULT 0,
   envio      DECIMAL(10,2) NOT NULL DEFAULT 0,
   propina    DECIMAL(10,2) NOT NULL DEFAULT 0,
+  descuento  DECIMAL(10,2) NOT NULL DEFAULT 0,
+  cupon      VARCHAR(30) DEFAULT NULL,
   total      DECIMAL(10,2) NOT NULL DEFAULT 0,
   estado     ENUM('recibido','preparando','listo','entregado','anulado')
              NOT NULL DEFAULT 'recibido',
   creado     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_pedidos_negocio_estado (negocio_id, estado),
   CONSTRAINT fk_pedidos_negocio FOREIGN KEY (negocio_id)
+    REFERENCES negocios(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Cupones de descuento (marketing)
+CREATE TABLE cupones (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  negocio_id INT NOT NULL,
+  codigo     VARCHAR(30) NOT NULL,
+  tipo       ENUM('porcentaje','monto') NOT NULL DEFAULT 'porcentaje',
+  valor      DECIMAL(10,2) NOT NULL DEFAULT 0,
+  min_pedido DECIMAL(10,2) NOT NULL DEFAULT 0,
+  activo     TINYINT(1) NOT NULL DEFAULT 1,
+  vence      DATE NULL,
+  UNIQUE KEY uq_cupon (negocio_id, codigo),
+  CONSTRAINT fk_cupones_negocio FOREIGN KEY (negocio_id)
+    REFERENCES negocios(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Promociones que se muestran en el menu (marketing)
+CREATE TABLE promociones (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  negocio_id INT NOT NULL,
+  titulo     VARCHAR(80) NOT NULL,
+  texto      VARCHAR(200) DEFAULT NULL,
+  activo     TINYINT(1) NOT NULL DEFAULT 1,
+  orden      INT NOT NULL DEFAULT 0,
+  CONSTRAINT fk_promos_negocio FOREIGN KEY (negocio_id)
     REFERENCES negocios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

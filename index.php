@@ -54,6 +54,10 @@ $conContenido = static function (array $top) use ($porCategoria, $subsPorPadre) 
 };
 $principales = array_values(array_filter($principales, $conContenido));
 
+// Promociones activas para el banner de marketing.
+$promos = todas('SELECT titulo, texto FROM promociones WHERE negocio_id = ? AND activo = 1 ORDER BY orden, id',
+                [$negocioId]);
+
 /** Pinta una tarjeta de platillo. $i controla el escalonado de aparición. */
 function pintar_platillo(array $p, array $negocio, int $i): void
 {
@@ -90,17 +94,52 @@ function pintar_platillo(array $p, array $negocio, int $i): void
     <?php
 }
 
+// --- Datos para el upsell inteligente de bebidas ---
+// Identificamos las categorias de bebidas (principal + subcategorias) para
+// saber si el pedido ya lleva algo de tomar y, si no, sugerir una bebida.
+$bebidaCatIds = [];
+foreach ($arbol as $c) {
+    if (mb_stripos($c['nombre'], 'bebida') !== false) {
+        $bebidaCatIds[(int) $c['id']] = true;
+        foreach ($subsPorPadre[(int) $c['id']] ?? [] as $s) {
+            $bebidaCatIds[(int) $s['id']] = true;
+        }
+    }
+}
+$bebidaIds = [];
+$sugeridos = [];
+foreach ($cat['productos'] as $id => $p) {
+    if (isset($bebidaCatIds[(int) $p['categoria_id']]) && (int) $p['disponible'] === 1) {
+        $bebidaIds[] = (int) $id;
+        if (count($sugeridos) < 4) {
+            $sugeridos[] = ['id' => (int) $id, 'nombre' => $p['nombre'], 'precio' => (float) $p['precio']];
+        }
+    }
+}
+
+// Formas de pago que acepta el negocio (las define el dueño).
+$formasPago = array_values(array_filter(array_map('trim',
+    explode(',', (string) ($negocio['formas_pago'] ?? 'Efectivo')))));
+
 $datosNavegador = [
     'negocio'  => [
-        'nombre'   => $negocio['nombre'],
-        'moneda'   => $negocio['moneda'],
-        'impuesto' => (float) $negocio['impuesto'],
-        'slug'     => $negocio['slug'],
+        'nombre'    => $negocio['nombre'],
+        'moneda'    => $negocio['moneda'],
+        'impuesto'  => (float) $negocio['impuesto'],
+        'slug'      => $negocio['slug'],
+        'envioModo' => $negocio['envio_modo'] ?? 'zonas',
+        'envioFijo' => (float) ($negocio['envio_fijo'] ?? 0),
+        'pedidoMinimo'    => (float) ($negocio['pedido_minimo'] ?? 0),
+        'envioGratisDesde' => $negocio['envio_gratis_desde'] !== null ? (float) $negocio['envio_gratis_desde'] : null,
+        'tiempoEstimado'  => $negocio['tiempo_estimado'] ?? '',
+        'formasPago'      => $formasPago,
     ],
     'catalogo' => catalogo_para_navegador($cat),
     'zonas'    => array_map(function ($z) {
         return ['nombre' => $z['nombre'], 'costo' => (float) $z['costo']];
     }, zonas($negocioId)),
+    'bebidaIds' => $bebidaIds,
+    'sugeridos' => $sugeridos,
     'mesa'     => $mesa,
     'abierto'  => $abierto,
 ];
@@ -152,6 +191,30 @@ $datosNavegador = [
       </form>
     <?php endif; ?>
   </header>
+
+  <?php if ($promos): ?>
+    <section class="promos" id="promos" aria-roledescription="carrusel" aria-label="Promociones"
+             data-total="<?= count($promos) ?>">
+      <div class="promos__pista" id="promosPista">
+        <?php foreach ($promos as $k => $pr): ?>
+          <article class="promo" role="group" aria-roledescription="promoción"
+                   aria-label="<?= (int) $k + 1 ?> de <?= count($promos) ?>">
+            <span class="promo__titulo"><?= e($pr['titulo']) ?></span>
+            <?php if ($pr['texto']): ?><span class="promo__texto"><?= e($pr['texto']) ?></span><?php endif; ?>
+          </article>
+        <?php endforeach; ?>
+      </div>
+      <?php if (count($promos) > 1): ?>
+        <div class="promos__puntos" id="promosPuntos" role="tablist" aria-label="Elegir promoción">
+          <?php foreach ($promos as $k => $pr): ?>
+            <button class="promos__punto<?= $k === 0 ? ' es-activo' : '' ?>" type="button"
+                    role="tab" aria-selected="<?= $k === 0 ? 'true' : 'false' ?>"
+                    aria-label="Promoción <?= (int) $k + 1 ?>" data-ir="<?= (int) $k ?>"></button>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </section>
+  <?php endif; ?>
 
   <nav class="categorias" id="categorias" aria-label="Categorías">
     <?php foreach ($principales as $i => $c): ?>

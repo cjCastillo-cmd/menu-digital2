@@ -321,6 +321,38 @@ function calcular_linea(array $cat, array $linea): array
    Guardado del pedido
    ============================================================ */
 
+/**
+ * Devuelve el cupón si es válido para este pedido, o null.
+ * Valida: existe, activo, no vencido y el subtotal alcanza el mínimo.
+ */
+function cupon_valido(int $negocioId, string $codigo, float $subtotal): ?array
+{
+    if ($codigo === '') {
+        return null;
+    }
+    $c = una('SELECT * FROM cupones WHERE negocio_id = ? AND codigo = ? AND activo = 1',
+             [$negocioId, mb_strtoupper($codigo)]);
+    if (!$c) {
+        return null;
+    }
+    if ($c['vence'] !== null && $c['vence'] < date('Y-m-d')) {
+        return null;
+    }
+    if ($subtotal < (float) $c['min_pedido']) {
+        return null;
+    }
+    return $c;
+}
+
+/** Calcula el descuento (redondeado) de un cupón sobre el subtotal. */
+function descuento_cupon(array $cupon, float $subtotal): float
+{
+    if ($cupon['tipo'] === 'monto') {
+        return min((float) $cupon['valor'], $subtotal);
+    }
+    return round($subtotal * (float) $cupon['valor'] / 100);
+}
+
 function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): array
 {
     $cat = catalogo((int) $negocio['id']);
@@ -343,16 +375,47 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
     $envio = 0.0;
     $zona  = null;
     if ($modo === 'domicilio') {
-        $zonaNombre = trim((string) ($datos['zona'] ?? ''));
-        foreach (zonas((int) $negocio['id']) as $z) {
-            if ($z['nombre'] === $zonaNombre) {
-                $envio = (float) $z['costo'];
-                $zona  = $z['nombre'];
-                break;
+        // El costo del envio lo decide el dueño: por zona, precio fijo o gratis.
+        $modoEnvio = (string) ($negocio['envio_modo'] ?? 'zonas');
+        if ($modoEnvio === 'gratis') {
+            $envio = 0.0;
+        } elseif ($modoEnvio === 'fijo') {
+            $envio = (float) ($negocio['envio_fijo'] ?? 0);
+        } else {
+            $zonaNombre = trim((string) ($datos['zona'] ?? ''));
+            foreach (zonas((int) $negocio['id']) as $z) {
+                if ($z['nombre'] === $zonaNombre) {
+                    $envio = (float) $z['costo'];
+                    $zona  = $z['nombre'];
+                    break;
+                }
+            }
+            if ($zona === null) {
+                throw new RuntimeException('Elegí una zona de entrega.');
             }
         }
-        if ($zona === null) {
-            throw new RuntimeException('Elegi una zona de entrega.');
+
+        // A domicilio SIEMPRE necesitamos con quién y a dónde llegar.
+        $cli = trim((string) ($datos['cliente'] ?? ''));
+        $tel = trim((string) ($datos['telefono'] ?? ''));
+        $dir = trim((string) ($datos['direccion'] ?? ''));
+        if ($cli === '' || $tel === '' || $dir === '') {
+            throw new RuntimeException('Para envío a domicilio necesitamos tu nombre, teléfono y dirección.');
+        }
+
+        // Pedido minimo a domicilio: no tiene sentido llevar solo una bebida.
+        $min = (float) ($negocio['pedido_minimo'] ?? 0);
+        if ($min > 0 && $subtotal < $min) {
+            throw new RuntimeException(
+                'El pedido mínimo a domicilio es ' . dinero($min, $negocio['moneda'])
+                . '. Agregá más antes de enviar.'
+            );
+        }
+
+        // Envio gratis a partir de cierto monto (incentivo de venta).
+        $gratis = $negocio['envio_gratis_desde'] ?? null;
+        if ($gratis !== null && $gratis !== '' && $subtotal >= (float) $gratis) {
+            $envio = 0.0;
         }
     }
 
@@ -362,7 +425,17 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
     $propPct  = max(0.0, min(0.5, (float) ($datos['propina_pct'] ?? 0)));
     $propina  = round($subtotal * $propPct);
 
-    $total    = $subtotal + $impuesto + $envio + $propina;
+    // Cupon de descuento (se valida SIEMPRE en el servidor).
+    $cuponCod  = mb_strtoupper(mb_substr(trim((string) ($datos['cupon'] ?? '')), 0, 30));
+    $descuento = 0.0;
+    $cupon = cupon_valido((int) $negocio['id'], $cuponCod, $subtotal);
+    if ($cupon) {
+        $descuento = descuento_cupon($cupon, $subtotal);
+    } else {
+        $cuponCod = null;
+    }
+
+    $total    = max(0.0, $subtotal + $impuesto + $envio + $propina - $descuento);
     $codigo   = strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
 
     $pdo = db();
@@ -372,8 +445,8 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
         consulta(
             'INSERT INTO pedidos
                (negocio_id, codigo, modo, mesa, cliente, telefono, zona, direccion,
-                pago, nota, subtotal, impuesto, envio, propina, total)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                pago, nota, subtotal, impuesto, envio, propina, descuento, cupon, total)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (int) $negocio['id'],
                 $codigo,
@@ -385,7 +458,7 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
                 mb_substr(trim((string) ($datos['direccion'] ?? '')), 0, 300) ?: null,
                 mb_substr(trim((string) ($datos['pago'] ?? '')), 0, 30) ?: null,
                 mb_substr(trim((string) ($datos['nota'] ?? '')), 0, 300) ?: null,
-                $subtotal, $impuesto, $envio, $propina, $total,
+                $subtotal, $impuesto, $envio, $propina, $descuento, $cuponCod, $total,
             ]
         );
 
@@ -411,11 +484,13 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
         'modo'     => $modo,
         'zona'     => $zona,
         'lineas'   => $lineas,
-        'subtotal' => $subtotal,
-        'impuesto' => $impuesto,
-        'envio'    => $envio,
-        'propina'  => $propina,
-        'total'    => $total,
+        'subtotal'  => $subtotal,
+        'impuesto'  => $impuesto,
+        'envio'     => $envio,
+        'propina'   => $propina,
+        'descuento' => $descuento,
+        'cupon'     => $cuponCod,
+        'total'     => $total,
     ];
 }
 
@@ -460,6 +535,10 @@ function texto_whatsapp(array $negocio, array $pedido, array $datos): string
     }
     if ($pedido['envio'] > 0) {
         $l[] = 'Envio: ' . dinero($pedido['envio'], $m);
+    }
+    if (!empty($pedido['descuento']) && $pedido['descuento'] > 0) {
+        $l[] = 'Descuento' . (!empty($pedido['cupon']) ? ' (' . $pedido['cupon'] . ')' : '')
+             . ': -' . dinero($pedido['descuento'], $m);
     }
     if (!empty($pedido['propina']) && $pedido['propina'] > 0) {
         $l[] = 'Propina: ' . dinero($pedido['propina'], $m);

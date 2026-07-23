@@ -182,3 +182,12 @@ UPDATE productos SET categoria_id=@c_pesc
  WHERE negocio_id=@n AND nombre IN ('Pescado frito entero','Filete de pescado a la plancha');
 UPDATE productos SET categoria_id=@c_cam
  WHERE negocio_id=@n AND nombre IN ('Camarones al ajillo','Camarones empanizados');
+
+-- Marketing: promociones visibles en el menu + un cupon de ejemplo
+INSERT INTO promociones (negocio_id, titulo, texto, orden) VALUES
+(@n, '🔥 Martes de mariscos', '2x1 en ceviche todos los martes.', 1),
+(@n, 'Envío gratis desde L500', 'Pedí a domicilio y ahorrate el envío.', 2),
+(@n, '10% con el código LORO10', 'Aplicá el código al pagar tu pedido.', 3);
+
+INSERT INTO cupones (negocio_id, codigo, tipo, valor, min_pedido, activo) VALUES
+(@n, 'LORO10', 'porcentaje', 10, 200, 1);
