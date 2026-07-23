@@ -154,12 +154,25 @@ CREATE TABLE pedidos (
   subtotal   DECIMAL(10,2) NOT NULL DEFAULT 0,
   impuesto   DECIMAL(10,2) NOT NULL DEFAULT 0,
   envio      DECIMAL(10,2) NOT NULL DEFAULT 0,
+  propina    DECIMAL(10,2) NOT NULL DEFAULT 0,
   total      DECIMAL(10,2) NOT NULL DEFAULT 0,
   estado     ENUM('recibido','preparando','listo','entregado','anulado')
              NOT NULL DEFAULT 'recibido',
   creado     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_pedidos_negocio_estado (negocio_id, estado),
   CONSTRAINT fk_pedidos_negocio FOREIGN KEY (negocio_id)
+    REFERENCES negocios(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Llamadas al mesero desde la mesa
+CREATE TABLE llamadas (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  negocio_id INT NOT NULL,
+  mesa       VARCHAR(10) NOT NULL,
+  atendida   TINYINT(1) NOT NULL DEFAULT 0,
+  creado     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_llamadas (negocio_id, atendida),
+  CONSTRAINT fk_llamadas_negocio FOREIGN KEY (negocio_id)
     REFERENCES negocios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

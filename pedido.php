@@ -102,6 +102,9 @@ $tema = tema_valido($negocio);
       <?php if ($pedido['envio'] > 0): ?>
         <div class="ticket__total"><span>Envío</span><span><?= dinero($pedido['envio'], $negocio['moneda']) ?></span></div>
       <?php endif; ?>
+      <?php if ($pedido['propina'] > 0): ?>
+        <div class="ticket__total"><span>Propina</span><span><?= dinero($pedido['propina'], $negocio['moneda']) ?></span></div>
+      <?php endif; ?>
       <div class="ticket__total ticket__total--fuerte">
         <span>Total</span><span><?= dinero($pedido['total'], $negocio['moneda']) ?></span>
       </div>
@@ -111,6 +114,10 @@ $tema = tema_valido($negocio);
   <a class="accion" id="irWhatsApp" style="text-decoration:none;justify-content:center;margin-top:20px"
      href="<?= e($urlWhatsApp) ?>" target="_blank" rel="noopener">
     Abrir WhatsApp y enviar
+  </a>
+  <a class="accion accion--suave" style="text-decoration:none"
+     href="<?= e(url('estado.php?r=' . urlencode($negocio['slug']) . '&c=' . urlencode($pedido['codigo']))) ?>">
+    Seguí el estado de tu pedido
   </a>
   <a class="accion accion--suave" style="text-decoration:none" href="<?= e($volver) ?>">Volver al menú</a>
 

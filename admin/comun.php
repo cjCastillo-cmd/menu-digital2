@@ -10,6 +10,7 @@ function cabecera_panel(string $titulo, string $activo, array $negocio): void
         'carta'      => ['Carta', 'index.php'],
         'categorias' => ['Categorias', 'categoria.php'],
         'cocina'     => ['Cocina', 'cocina.php'],
+        'reportes'   => ['Reportes', 'reporte.php'],
         'negocio'    => ['Negocio', 'negocio.php'],
         'qr'         => ['Codigos QR', 'qr.php'],
     ];

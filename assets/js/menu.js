@@ -13,7 +13,7 @@
   D.catalogo.productos.forEach(function (p) { PROD[p.id] = p; });
   D.catalogo.grupos.forEach(function (g) { GRUPO[g.id] = g; });
 
-  var estado = { modo: "mesa", zona: (D.zonas[0] || {}).nombre || "", carrito: [], borrador: null };
+  var estado = { modo: "mesa", zona: (D.zonas[0] || {}).nombre || "", carrito: [], borrador: null, propinaPct: 0 };
 
   function esc(t) {
     return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
@@ -97,7 +97,8 @@
     var sub = estado.carrito.reduce(function (s, l) { return s + l.precio * l.cantidad; }, 0);
     var imp = Math.round(sub * D.negocio.impuesto);
     var env = envio();
-    return { sub: sub, imp: imp, env: env, total: sub + imp + env };
+    var prop = Math.round(sub * (estado.propinaPct || 0));
+    return { sub: sub, imp: imp, env: env, prop: prop, total: sub + imp + env + prop };
   }
 
   /* ---------- Pizza ---------- */
@@ -382,6 +383,7 @@
           '<div class="ticket__total"><span>Subtotal</span><span>' + dinero(t.sub) + "</span></div>" +
           (D.negocio.impuesto ? '<div class="ticket__total"><span>ISV ' + Math.round(D.negocio.impuesto * 100) + "%</span><span>" + dinero(t.imp) + "</span></div>" : "") +
           (t.env ? '<div class="ticket__total"><span>Envío</span><span>' + dinero(t.env) + "</span></div>" : "") +
+          (t.prop ? '<div class="ticket__total"><span>Propina</span><span>' + dinero(t.prop) + "</span></div>" : "") +
           '<div class="ticket__total ticket__total--fuerte"><span>Total</span><span>' + dinero(t.total) + "</span></div>" +
         "</div>" +
       "</div>" +
@@ -394,6 +396,13 @@
       campos +
       '<div class="campo"><label class="campo__rotulo" for="cPago">Forma de pago</label>' +
         '<select id="cPago"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option></select></div>' +
+      '<div class="campo"><span class="campo__rotulo">Propina (opcional)</span>' +
+        '<div class="modos">' +
+          [0, 0.10, 0.15, 0.20].map(function (pp) {
+            return '<button class="modo" type="button" data-propina="' + pp + '" aria-pressed="' + (estado.propinaPct === pp) + '">' +
+              (pp ? Math.round(pp * 100) + "%" : "Sin propina") + "</button>";
+          }).join("") +
+        "</div></div>" +
       (D.abierto ? "" : '<p class="nota-pie nota-pie--alerta">El local está cerrado. Podés enviar el pedido y te confirmarán al abrir.</p>') +
       '<div class="pie"><button class="accion" id="enviar" type="button">' +
         "<span>Enviar el pedido</span><span>" + dinero(t.total) + "</span></button></div>" +
@@ -414,6 +423,7 @@
       zona: estado.modo === "domicilio" ? v("#cZona") : "",
       direccion: v("#cDir"),
       pago: v("#cPago"),
+      propina_pct: estado.propinaPct,
       nota: nota,
       lineas: estado.carrito.map(function (l) {
         return {
@@ -513,6 +523,12 @@
       estado.carrito = estado.carrito.filter(function (l) { return l.uid !== el.dataset.quitar; });
       pintarBarra();
       if (!estado.carrito.length) { cerrar(); } else { pintarPedido(); }
+      return;
+    }
+
+    if ((el = ev.target.closest("[data-propina]"))) {
+      estado.propinaPct = parseFloat(el.dataset.propina) || 0;
+      pintarPedido();
       return;
     }
 

@@ -18,7 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion  = (string) ($_POST['accion'] ?? 'estado');
     $volverA = (($_POST['vista'] ?? '') === 'mesas') ? 'mesas' : 'comandas';
 
-    if ($accion === 'cerrar_mesa') {
+    if ($accion === 'atender') {
+        // Marca una llamada al mesero como atendida.
+        consulta('UPDATE llamadas SET atendida = 1 WHERE id = ? AND negocio_id = ?',
+                 [entero($_POST['id'] ?? 0), $negocioId]);
+    } elseif ($accion === 'cerrar_mesa') {
         // Caja cobra la mesa: cierra todos sus pedidos activos.
         $mesa = mb_substr(trim((string) ($_POST['mesa'] ?? '')), 0, 10);
         if ($mesa !== '') {
@@ -75,6 +79,17 @@ foreach ($abiertos as $p) {
 }
 uksort($porMesa, 'strnatcasecmp');
 
+// Llamadas al mesero pendientes.
+$llamadas = todas(
+    'SELECT * FROM llamadas WHERE negocio_id = ? AND atendida = 0 ORDER BY creado ASC',
+    [$negocioId]
+);
+
+// Marcadores para el aviso sonoro (cambian cuando entra algo nuevo).
+$maxPedido = (int) (una('SELECT COALESCE(MAX(id),0) AS m FROM pedidos WHERE negocio_id = ?',
+                        [$negocioId])['m'] ?? 0);
+$numLlamadas = count($llamadas);
+
 $modos = ['mesa' => 'En mesa', 'llevar' => 'Para llevar', 'domicilio' => 'Domicilio'];
 
 /** Pinta las lineas de un pedido. */
@@ -102,6 +117,25 @@ cabecera_panel('Cocina', 'cocina', $negocio);
   <a class="mini <?= $vista === 'mesas' ? 'mini--activo' : '' ?>"
      href="<?= url('admin/cocina.php?vista=mesas') ?>">Por mesa (<?= count($porMesa) ?>)</a>
 </div>
+
+<?php if ($llamadas): ?>
+  <div class="aviso" style="border-color:var(--rojo);color:var(--rojo)">
+    <strong>Mesas llamando al mesero:</strong>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <?php foreach ($llamadas as $ll): ?>
+        <form method="post" style="display:inline">
+          <input type="hidden" name="token" value="<?= e(token()) ?>">
+          <input type="hidden" name="accion" value="atender">
+          <input type="hidden" name="vista" value="<?= e($vista) ?>">
+          <input type="hidden" name="id" value="<?= (int) $ll['id'] ?>">
+          <button class="mini mini--peligro" type="submit">
+            Mesa <?= e($ll['mesa']) ?> · atender ✓
+          </button>
+        </form>
+      <?php endforeach; ?>
+    </div>
+  </div>
+<?php endif; ?>
 
 <?php if ($vista === 'comandas'): ?>
 
@@ -144,6 +178,8 @@ cabecera_panel('Cocina', 'cocina', $negocio);
             <?php endif; ?>
 
             <div class="comanda__acciones">
+              <a class="mini" href="<?= url('admin/imprimir.php?id=' . (int) $p['id']) ?>"
+                 target="_blank" rel="noopener" style="flex:1;text-align:center;padding:7px 0">Imprimir</a>
               <?php if ($sig): ?>
                 <form method="post" style="flex:1">
                   <input type="hidden" name="token" value="<?= e(token()) ?>">
@@ -250,6 +286,34 @@ cabecera_panel('Cocina', 'cocina', $negocio);
 </div>
 <?php endif; ?>
 
-<script>setTimeout(function () { location.reload(); }, 25000);</script>
+<script>
+(function () {
+  var maxPedido = <?= $maxPedido ?>, llamadas = <?= $numLlamadas ?>;
+
+  function beep(veces) {
+    try {
+      var ac = new (window.AudioContext || window.webkitAudioContext)();
+      for (var i = 0; i < veces; i++) {
+        var t = i * 0.22, o = ac.createOscillator(), g = ac.createGain();
+        o.frequency.value = 760; o.connect(g); g.connect(ac.destination);
+        g.gain.setValueAtTime(0.001, ac.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(0.5, ac.currentTime + t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + t + 0.18);
+        o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.18);
+      }
+    } catch (e) {}
+    if (navigator.vibrate) navigator.vibrate(200);
+  }
+
+  var prevP = parseInt(localStorage.getItem('coc_maxped') || '0', 10);
+  var prevL = parseInt(localStorage.getItem('coc_llam') || '0', 10);
+  if (maxPedido > prevP) { beep(2); }          // pedido nuevo
+  else if (llamadas > prevL) { beep(3); }      // llamada nueva
+  localStorage.setItem('coc_maxped', String(maxPedido));
+  localStorage.setItem('coc_llam', String(llamadas));
+
+  setTimeout(function () { location.reload(); }, 25000);
+})();
+</script>
 
 <?php pie_panel(); ?>

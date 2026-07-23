@@ -82,6 +82,17 @@ $datosNavegador = [
       <button class="modo" type="button" data-modo="llevar" aria-pressed="false">Para llevar</button>
       <button class="modo" type="button" data-modo="domicilio" aria-pressed="false">A domicilio</button>
     </div>
+
+    <?php if ($mesa !== ''): ?>
+      <form method="post" action="<?= url('llamar.php') ?>" style="margin-top:10px">
+        <input type="hidden" name="r" value="<?= e($negocio['slug']) ?>">
+        <input type="hidden" name="mesa" value="<?= e($mesa) ?>">
+        <input type="hidden" name="token" value="<?= e(token()) ?>">
+        <button class="accion--suave" type="submit" style="width:100%;margin-top:0">
+          Llamar al mesero
+        </button>
+      </form>
+    <?php endif; ?>
   </header>
 
   <nav class="categorias" id="categorias" aria-label="Categorías">

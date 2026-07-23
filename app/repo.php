@@ -329,7 +329,12 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
     }
 
     $impuesto = round($subtotal * (float) $negocio['impuesto']);
-    $total    = $subtotal + $impuesto + $envio;
+
+    // Propina: un porcentaje del subtotal, recortado entre 0 y 50%.
+    $propPct  = max(0.0, min(0.5, (float) ($datos['propina_pct'] ?? 0)));
+    $propina  = round($subtotal * $propPct);
+
+    $total    = $subtotal + $impuesto + $envio + $propina;
     $codigo   = strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
 
     $pdo = db();
@@ -339,8 +344,8 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
         consulta(
             'INSERT INTO pedidos
                (negocio_id, codigo, modo, mesa, cliente, telefono, zona, direccion,
-                pago, nota, subtotal, impuesto, envio, total)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                pago, nota, subtotal, impuesto, envio, propina, total)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 (int) $negocio['id'],
                 $codigo,
@@ -352,7 +357,7 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
                 mb_substr(trim((string) ($datos['direccion'] ?? '')), 0, 300) ?: null,
                 mb_substr(trim((string) ($datos['pago'] ?? '')), 0, 30) ?: null,
                 mb_substr(trim((string) ($datos['nota'] ?? '')), 0, 300) ?: null,
-                $subtotal, $impuesto, $envio, $total,
+                $subtotal, $impuesto, $envio, $propina, $total,
             ]
         );
 
@@ -381,6 +386,7 @@ function guardar_pedido(array $negocio, array $datos, array $lineasCrudas): arra
         'subtotal' => $subtotal,
         'impuesto' => $impuesto,
         'envio'    => $envio,
+        'propina'  => $propina,
         'total'    => $total,
     ];
 }
@@ -426,6 +432,9 @@ function texto_whatsapp(array $negocio, array $pedido, array $datos): string
     }
     if ($pedido['envio'] > 0) {
         $l[] = 'Envio: ' . dinero($pedido['envio'], $m);
+    }
+    if (!empty($pedido['propina']) && $pedido['propina'] > 0) {
+        $l[] = 'Propina: ' . dinero($pedido['propina'], $m);
     }
     $l[] = '*TOTAL: ' . dinero($pedido['total'], $m) . '*';
 
