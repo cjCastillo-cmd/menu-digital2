@@ -459,8 +459,11 @@
       document.querySelectorAll("[data-cat]").forEach(function (b) {
         b.setAttribute("aria-current", String(b === el));
       });
-      var sec = document.getElementById("sec-" + el.dataset.cat);
-      if (sec) { sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      // Cada categoria es su propio panel: mostramos solo el elegido.
+      document.querySelectorAll(".panel-cat").forEach(function (pan) {
+        pan.classList.toggle("panel-cat--activo", pan.dataset.panel === el.dataset.cat);
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 

@@ -204,6 +204,23 @@ a { color: var(--ambar); }
 }
 .seccion__nota { font-size: 12.5px; color: var(--suave); margin: 10px 0 16px; }
 
+/* Cada categoria es su propio panel: se ve una a la vez. */
+.panel-cat { display: none; }
+.panel-cat--activo { display: block; animation: aparecer .45s ease-out both; }
+
+/* Subcategorias dentro de una categoria */
+.subseccion__titulo {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -.01em;
+  margin: 28px 0 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--linea);
+  color: var(--ambar);
+}
+.seccion > .subseccion__titulo:first-of-type { margin-top: 8px; }
+
 .platillo {
   display: block;
   width: 100%;

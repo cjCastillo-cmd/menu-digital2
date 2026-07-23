@@ -17,7 +17,7 @@ if ($id > 0) {
     }
 }
 
-$cats   = categorias($negocioId);
+$cats   = categorias_arbol($negocioId);
 $grupos = todas('SELECT * FROM grupos WHERE negocio_id = ? ORDER BY orden, nombre', [$negocioId]);
 
 $asignados = [];
@@ -127,7 +127,7 @@ cabecera_panel($id > 0 ? 'Editar platillo' : 'Nuevo platillo', 'carta', $negocio
         <select id="categoria_id" name="categoria_id">
           <?php foreach ($cats as $c): ?>
             <option value="<?= (int) $c['id'] ?>"<?= (int) $c['id'] === (int) $v('categoria_id', 0) ? ' selected' : '' ?>>
-              <?= e($c['nombre']) ?>
+              <?= ((int) $c['nivel'] === 1 ? '— ' : '') . e($c['nombre']) ?>
             </option>
           <?php endforeach; ?>
         </select>

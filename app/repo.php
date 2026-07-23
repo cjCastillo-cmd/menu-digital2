@@ -33,6 +33,34 @@ function zonas(int $negocioId): array
     );
 }
 
+/**
+ * Categorias como arbol de 2 niveles, en orden de lectura: cada categoria
+ * principal seguida de sus subcategorias. Cada fila lleva 'nivel' (0 principal,
+ * 1 subcategoria). Útil para los menús y para los selectores del panel.
+ */
+function categorias_arbol(int $negocioId): array
+{
+    $filas = categorias($negocioId);
+    $subs = [];
+    foreach ($filas as $c) {
+        if ($c['padre_id'] !== null) {
+            $subs[(int) $c['padre_id']][] = $c;
+        }
+    }
+    $out = [];
+    foreach ($filas as $c) {
+        if ($c['padre_id'] === null) {
+            $c['nivel'] = 0;
+            $out[] = $c;
+            foreach ($subs[(int) $c['id']] ?? [] as $s) {
+                $s['nivel'] = 1;
+                $out[] = $s;
+            }
+        }
+    }
+    return $out;
+}
+
 function horarios(int $negocioId): array
 {
     $filas = todas('SELECT * FROM horarios WHERE negocio_id = ? ORDER BY dia', [$negocioId]);

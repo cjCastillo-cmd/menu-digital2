@@ -153,3 +153,32 @@ WHERE p.negocio_id=@n AND p.categoria_id IN (@c_par, @c_mar)
 INSERT INTO producto_grupo (producto_id, grupo_id, orden)
 SELECT p.id, @g_ext, 3 FROM productos p
 WHERE p.negocio_id=@n AND p.categoria_id IN (@c_par, @c_mar);
+
+-- ------------------------------------------------------------
+--  Subcategorias (ejemplo de jerarquia de 2 niveles)
+-- ------------------------------------------------------------
+-- Bebidas -> Naturales / Cervezas y tragos (Gaseosa queda directa)
+INSERT INTO categorias (negocio_id, padre_id, nombre, orden) VALUES
+(@n, @c_beb, 'Naturales', 1),
+(@n, @c_beb, 'Cervezas y tragos', 2);
+
+SET @c_nat  = (SELECT id FROM categorias WHERE negocio_id=@n AND padre_id=@c_beb AND nombre='Naturales');
+SET @c_cerv = (SELECT id FROM categorias WHERE negocio_id=@n AND padre_id=@c_beb AND nombre='Cervezas y tragos');
+
+UPDATE productos SET categoria_id=@c_nat
+ WHERE negocio_id=@n AND nombre IN ('Agua de coco','Limonada con hierbabuena','Horchata');
+UPDATE productos SET categoria_id=@c_cerv
+ WHERE negocio_id=@n AND nombre IN ('Michelada','Cerveza nacional');
+
+-- Del mar -> Pescados / Camarones (ceviche y arroz quedan directos)
+INSERT INTO categorias (negocio_id, padre_id, nombre, orden) VALUES
+(@n, @c_mar, 'Pescados', 1),
+(@n, @c_mar, 'Camarones', 2);
+
+SET @c_pesc = (SELECT id FROM categorias WHERE negocio_id=@n AND padre_id=@c_mar AND nombre='Pescados');
+SET @c_cam  = (SELECT id FROM categorias WHERE negocio_id=@n AND padre_id=@c_mar AND nombre='Camarones');
+
+UPDATE productos SET categoria_id=@c_pesc
+ WHERE negocio_id=@n AND nombre IN ('Pescado frito entero','Filete de pescado a la plancha');
+UPDATE productos SET categoria_id=@c_cam
+ WHERE negocio_id=@n AND nombre IN ('Camarones al ajillo','Camarones empanizados');

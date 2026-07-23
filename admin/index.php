@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$cats = categorias($negocioId);
+$cats = categorias_arbol($negocioId);
 $productos = todas(
     'SELECT p.*, c.nombre AS categoria
        FROM productos p
@@ -109,7 +109,7 @@ cabecera_panel('Carta', 'carta', $negocio);
             <select name="categoria[]">
               <?php foreach ($cats as $c): ?>
                 <option value="<?= (int) $c['id'] ?>"<?= (int) $c['id'] === (int) $p['categoria_id'] ? ' selected' : '' ?>>
-                  <?= e($c['nombre']) ?>
+                  <?= ((int) $c['nivel'] === 1 ? '— ' : '') . e($c['nombre']) ?>
                 </option>
               <?php endforeach; ?>
             </select>

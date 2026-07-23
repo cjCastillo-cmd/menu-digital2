@@ -27,10 +27,68 @@ foreach ($cat['productos'] as $id => $p) {
     $porCategoria[(int) $p['categoria_id']][] = $p;
 }
 
-// Solo mostramos categorias que tienen al menos un platillo.
-$cats = array_values(array_filter($cats, static function ($c) use ($porCategoria) {
-    return !empty($porCategoria[(int) $c['id']]);
-}));
+// Arbol de categorias: principales, cada una con sus subcategorias.
+$arbol = categorias_arbol($negocioId);
+$subsPorPadre = [];
+$principales = [];
+foreach ($arbol as $c) {
+    if ((int) $c['nivel'] === 0) {
+        $principales[] = $c;
+    } else {
+        $subsPorPadre[(int) $c['padre_id']][] = $c;
+    }
+}
+
+// Una categoria principal "tiene contenido" si tiene platillos directos
+// o alguna de sus subcategorias los tiene.
+$conContenido = static function (array $top) use ($porCategoria, $subsPorPadre) {
+    if (!empty($porCategoria[(int) $top['id']])) {
+        return true;
+    }
+    foreach ($subsPorPadre[(int) $top['id']] ?? [] as $s) {
+        if (!empty($porCategoria[(int) $s['id']])) {
+            return true;
+        }
+    }
+    return false;
+};
+$principales = array_values(array_filter($principales, $conContenido));
+
+/** Pinta una tarjeta de platillo. $i controla el escalonado de aparición. */
+function pintar_platillo(array $p, array $negocio, int $i): void
+{
+    $agotado = (int) $p['disponible'] !== 1;
+    $desde   = !empty($p['grupos']) ? 'desde ' : '';
+    $foto    = url_imagen_producto($p['imagen'] ?? null);
+    ?>
+    <button class="platillo<?= $foto ? ' platillo--foto' : '' ?>" type="button"
+            style="--i:<?= min($i, 12) ?>"
+            data-prod="<?= (int) $p['id'] ?>" <?= $agotado ? 'disabled' : '' ?>>
+      <?php if ($foto): ?>
+        <img class="platillo__foto" src="<?= e($foto) ?>" alt="" loading="lazy" width="88" height="88">
+      <?php endif; ?>
+      <div class="platillo__cuerpo">
+        <div class="platillo__fila">
+          <span class="platillo__nombre"><?= e($p['nombre']) ?></span>
+          <span class="platillo__puntos"></span>
+          <span class="platillo__precio"><?= $desde . dinero($p['precio'], $negocio['moneda']) ?></span>
+        </div>
+        <?php if ($p['descripcion']): ?>
+          <p class="platillo__desc"><?= e($p['descripcion']) ?></p>
+        <?php endif; ?>
+        <?php if ($agotado || (int) $p['destacado'] === 1 || $p['etiquetas']): ?>
+          <div class="platillo__marcas">
+            <?php if ($agotado): ?><span class="marca" style="color:var(--rojo);border-color:var(--rojo)">Agotado</span><?php endif; ?>
+            <?php if ((int) $p['destacado'] === 1): ?><span class="marca marca--favorito">Favorito</span><?php endif; ?>
+            <?php foreach (array_filter(explode(',', (string) $p['etiquetas'])) as $et): ?>
+              <span class="marca"><?= e(trim($et)) ?></span>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </div>
+    </button>
+    <?php
+}
 
 $datosNavegador = [
     'negocio'  => [
@@ -96,50 +154,28 @@ $datosNavegador = [
   </header>
 
   <nav class="categorias" id="categorias" aria-label="Categorías">
-    <?php foreach ($cats as $i => $c): ?>
+    <?php foreach ($principales as $i => $c): ?>
       <button class="chip" type="button" data-cat="<?= (int) $c['id'] ?>"
               aria-current="<?= $i === 0 ? 'true' : 'false' ?>"><?= e($c['nombre']) ?></button>
     <?php endforeach; ?>
   </nav>
 
-  <?php foreach ($cats as $c):
-      $items = $porCategoria[(int) $c['id']] ?? [];
-      if (!$items) { continue; } ?>
-    <section class="seccion" id="sec-<?= (int) $c['id'] ?>">
-      <h2 class="seccion__titulo"><?= e($c['nombre']) ?></h2>
-      <p class="seccion__nota"><?= count($items) ?> <?= count($items) === 1 ? 'opción' : 'opciones' ?></p>
+  <?php foreach ($principales as $i => $top):
+      $idTop    = (int) $top['id'];
+      $directos = $porCategoria[$idTop] ?? [];
+      $subs     = $subsPorPadre[$idTop] ?? [];
+      $k = 0; ?>
+    <section class="seccion panel-cat<?= $i === 0 ? ' panel-cat--activo' : '' ?>"
+             id="cat-<?= $idTop ?>" data-panel="<?= $idTop ?>">
+      <h2 class="seccion__titulo"><?= e($top['nombre']) ?></h2>
 
-      <?php $k = 0; foreach ($items as $p):
-          $agotado = (int) $p['disponible'] !== 1;
-          $desde   = !empty($p['grupos']) ? 'desde ' : '';
-          $foto    = url_imagen_producto($p['imagen'] ?? null);
-          $k++; ?>
-        <button class="platillo<?= $foto ? ' platillo--foto' : '' ?>" type="button"
-                style="--i:<?= min($k, 12) ?>"
-                data-prod="<?= (int) $p['id'] ?>" <?= $agotado ? 'disabled' : '' ?>>
-          <?php if ($foto): ?>
-            <img class="platillo__foto" src="<?= e($foto) ?>" alt="" loading="lazy" width="88" height="88">
-          <?php endif; ?>
-          <div class="platillo__cuerpo">
-            <div class="platillo__fila">
-              <span class="platillo__nombre"><?= e($p['nombre']) ?></span>
-              <span class="platillo__puntos"></span>
-              <span class="platillo__precio"><?= $desde . dinero($p['precio'], $negocio['moneda']) ?></span>
-            </div>
-            <?php if ($p['descripcion']): ?>
-              <p class="platillo__desc"><?= e($p['descripcion']) ?></p>
-            <?php endif; ?>
-            <?php if ($agotado || (int) $p['destacado'] === 1 || $p['etiquetas']): ?>
-              <div class="platillo__marcas">
-                <?php if ($agotado): ?><span class="marca" style="color:var(--rojo);border-color:var(--rojo)">Agotado</span><?php endif; ?>
-                <?php if ((int) $p['destacado'] === 1): ?><span class="marca marca--favorito">Favorito</span><?php endif; ?>
-                <?php foreach (array_filter(explode(',', (string) $p['etiquetas'])) as $et): ?>
-                  <span class="marca"><?= e(trim($et)) ?></span>
-                <?php endforeach; ?>
-              </div>
-            <?php endif; ?>
-          </div>
-        </button>
+      <?php foreach ($directos as $p): $k++; pintar_platillo($p, $negocio, $k); endforeach; ?>
+
+      <?php foreach ($subs as $s):
+          $items = $porCategoria[(int) $s['id']] ?? [];
+          if (!$items) { continue; } ?>
+        <h3 class="subseccion__titulo"><?= e($s['nombre']) ?></h3>
+        <?php foreach ($items as $p): $k++; pintar_platillo($p, $negocio, $k); endforeach; ?>
       <?php endforeach; ?>
     </section>
   <?php endforeach; ?>

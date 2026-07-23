@@ -74,10 +74,13 @@ CREATE TABLE zonas (
 CREATE TABLE categorias (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   negocio_id INT NOT NULL,
+  padre_id   INT NULL,                 -- NULL = categoria principal; si no, subcategoria
   nombre     VARCHAR(80) NOT NULL,
   orden      INT NOT NULL DEFAULT 0,
   CONSTRAINT fk_categorias_negocio FOREIGN KEY (negocio_id)
-    REFERENCES negocios(id) ON DELETE CASCADE
+    REFERENCES negocios(id) ON DELETE CASCADE,
+  CONSTRAINT fk_categorias_padre FOREIGN KEY (padre_id)
+    REFERENCES categorias(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE grupos (

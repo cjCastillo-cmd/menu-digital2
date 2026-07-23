@@ -149,6 +149,21 @@ a { color: var(--ambar); }
 }
 .seccion__nota { font-size: 11px; color: var(--suave); margin: 0 0 14px; }
 
+/* Cada categoria es su propio panel: se ve una a la vez. */
+.panel-cat { display: none; }
+.panel-cat--activo { display: block; }
+
+/* Subcategorias dentro de una categoria */
+.subseccion__titulo {
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ambar);
+  margin: 24px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--linea);
+}
+
 .platillo {
   display: block;
   width: 100%;
