@@ -21,6 +21,8 @@ CREATE TABLE negocios (
   moneda        VARCHAR(5)   NOT NULL DEFAULT 'L',
   impuesto      DECIMAL(4,3) NOT NULL DEFAULT 0.150,
   tema          VARCHAR(30)  NOT NULL DEFAULT 'comanda',
+  color_fondo   VARCHAR(9)   DEFAULT NULL,   -- color de marca (fondo)
+  color_acento  VARCHAR(9)   DEFAULT NULL,   -- color de marca (acento)
   activo        TINYINT(1)   NOT NULL DEFAULT 1,
   creado        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -110,6 +112,7 @@ CREATE TABLE productos (
   categoria_id INT NOT NULL,
   nombre       VARCHAR(120) NOT NULL,
   descripcion  VARCHAR(400) DEFAULT NULL,
+  imagen       VARCHAR(255) DEFAULT NULL,
   precio       DECIMAL(10,2) NOT NULL DEFAULT 0,
   disponible   TINYINT(1) NOT NULL DEFAULT 1,
   destacado    TINYINT(1) NOT NULL DEFAULT 0,

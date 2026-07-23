@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/comun.php';
+require_once __DIR__ . '/../app/imagen.php';
 
 $u = requiere_dueno();
 $negocio = negocio_por_id((int) $u['negocio_id']);
@@ -29,10 +30,28 @@ if ($id > 0) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verificar_token();
 
+    // --- Foto: subir nueva, conservar la actual o quitarla ---
+    $imagenActual = $producto['imagen'] ?? null;
+    $imagen = $imagenActual;
+    $errorFoto = null;
+    try {
+        $nueva = guardar_imagen_subida($_FILES['imagen'] ?? []);
+        if ($nueva !== null) {
+            borrar_imagen_producto($imagenActual); // reemplaza la anterior
+            $imagen = $nueva;
+        } elseif (!empty($_POST['quitar_imagen'])) {
+            borrar_imagen_producto($imagenActual);
+            $imagen = null;
+        }
+    } catch (RuntimeException $e) {
+        $errorFoto = $e->getMessage();
+    }
+
     $datos = [
         'categoria_id' => entero($_POST['categoria_id'] ?? 0),
         'nombre'       => mb_substr(trim((string) ($_POST['nombre'] ?? '')), 0, 120),
         'descripcion'  => mb_substr(trim((string) ($_POST['descripcion'] ?? '')), 0, 400),
+        'imagen'       => $imagen,
         'precio'       => max(0, decimal($_POST['precio'] ?? 0)),
         'disponible'   => isset($_POST['disponible']) ? 1 : 0,
         'destacado'    => isset($_POST['destacado']) ? 1 : 0,
@@ -41,13 +60,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'orden'        => entero($_POST['orden'] ?? 0),
     ];
 
-    if ($datos['nombre'] === '' || $datos['categoria_id'] <= 0) {
+    if ($errorFoto !== null) {
+        avisar($errorFoto, 'error');
+    } elseif ($datos['nombre'] === '' || $datos['categoria_id'] <= 0) {
         avisar('El platillo necesita nombre y categoria.', 'error');
     } else {
         if ($id > 0) {
             consulta(
                 'UPDATE productos
-                    SET categoria_id=?, nombre=?, descripcion=?, precio=?, disponible=?,
+                    SET categoria_id=?, nombre=?, descripcion=?, imagen=?, precio=?, disponible=?,
                         destacado=?, mitades=?, etiquetas=?, orden=?
                   WHERE id=? AND negocio_id=?',
                 array_merge(array_values($datos), [$id, $negocioId])
@@ -55,9 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             consulta(
                 'INSERT INTO productos
-                   (negocio_id, categoria_id, nombre, descripcion, precio, disponible,
+                   (negocio_id, categoria_id, nombre, descripcion, imagen, precio, disponible,
                     destacado, mitades, etiquetas, orden)
-                 VALUES (?,?,?,?,?,?,?,?,?,?)',
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                 array_merge([$negocioId], array_values($datos))
             );
             $id = (int) db()->lastInsertId();
@@ -93,7 +114,7 @@ cabecera_panel($id > 0 ? 'Editar platillo' : 'Nuevo platillo', 'carta', $negocio
     un tamaño grande, una masa rellena, extras.
   </p>
 
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="token" value="<?= e(token()) ?>">
 
     <div class="dos">
@@ -117,6 +138,24 @@ cabecera_panel($id > 0 ? 'Editar platillo' : 'Nuevo platillo', 'carta', $negocio
       <label class="campo__rotulo" for="descripcion">Descripción</label>
       <textarea id="descripcion" name="descripcion" maxlength="400"
                 placeholder="Los ingredientes, como los diría un mesero"><?= e($v('descripcion')) ?></textarea>
+    </div>
+
+    <div class="campo">
+      <label class="campo__rotulo" for="imagen">Foto del platillo</label>
+      <?php $fotoActual = url_imagen_producto($v('imagen') ?: null); ?>
+      <?php if ($fotoActual): ?>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <img src="<?= e($fotoActual) ?>" alt="" width="80" height="80"
+               style="border:2px solid var(--linea);object-fit:cover">
+          <label style="margin:0">
+            <input type="checkbox" name="quitar_imagen" style="width:auto"> Quitar la foto
+          </label>
+        </div>
+      <?php endif; ?>
+      <input id="imagen" name="imagen" type="file" accept="image/jpeg,image/png,image/webp">
+      <p class="ayuda" style="margin-top:6px">
+        Se recorta al centro y queda cuadrada. Ideal una foto de frente y bien iluminada.
+      </p>
     </div>
 
     <div class="dos">

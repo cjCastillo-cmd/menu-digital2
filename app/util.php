@@ -82,3 +82,41 @@ function decimal($valor, float $porDefecto = 0.0): float
 {
     return is_numeric($valor) ? (float) $valor : $porDefecto;
 }
+
+/** Valida un color hexadecimal (#rgb / #rrggbb / #rrggbbaa) o devuelve null. */
+function color_hex($valor): ?string
+{
+    $c = trim((string) $valor);
+    return preg_match('/^#[0-9a-fA-F]{3,8}$/', $c) === 1 ? $c : null;
+}
+
+/**
+ * Devuelve un bloque <style> que retinta la interfaz con los colores de la
+ * marca del negocio. A partir del color de fondo deriva los grises y lineas,
+ * y usa el color de acento en vez del ambar. Si el negocio no definio colores,
+ * devuelve cadena vacia (se usa el tema comanda por defecto).
+ */
+function estilo_marca(array $negocio): string
+{
+    $fondo  = color_hex($negocio['color_fondo'] ?? null);
+    $acento = color_hex($negocio['color_acento'] ?? null);
+    if (!$fondo && !$acento) {
+        return '';
+    }
+
+    $reglas = ':root{';
+    if ($fondo) {
+        $reglas .= "--fondo:$fondo;";
+        $reglas .= "--fondo2:color-mix(in srgb,$fondo 90%,#fff);";
+        $reglas .= "--fondo3:color-mix(in srgb,$fondo 80%,#fff);";
+        $reglas .= "--linea:color-mix(in srgb,$fondo 60%,#fff);";
+        $reglas .= "--suave:color-mix(in srgb,$fondo 32%,#fff);";
+        $reglas .= "--tinta:color-mix(in srgb,$fondo 8%,#fff);";
+    }
+    if ($acento) {
+        $reglas .= "--ambar:$acento;";
+    }
+    $reglas .= '}';
+
+    return "<style>$reglas</style>";
+}

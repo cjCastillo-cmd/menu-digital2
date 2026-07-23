@@ -40,7 +40,7 @@ cabecera_panel('Codigos QR', 'qr', $negocio);
   <div id="hoja" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="<?= url('assets/js/qrcode.js') ?>"></script>
 <script>
 (function () {
   var slug = <?= json_encode($negocio['slug']) ?>;

@@ -8,6 +8,9 @@ if (!$negocio || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     ir('index.php');
 }
 
+// Token contra falsificacion de formularios: todos los POST lo verifican.
+verificar_token();
+
 $carga = json_decode((string) ($_POST['carga'] ?? ''), true);
 $error = null;
 $pedido = null;
@@ -44,6 +47,7 @@ $volver = url('index.php?r=' . urlencode($negocio['slug'])
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= url('assets/css/comanda.css') ?>">
+<?= estilo_marca($negocio) ?>
 </head>
 <body>
 <main class="envoltura" style="max-width:460px">

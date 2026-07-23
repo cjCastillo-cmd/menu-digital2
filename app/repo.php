@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/util.php';
+require_once __DIR__ . '/imagen.php';
 
 /* ============================================================
    Lectura del menu
@@ -111,6 +112,7 @@ function catalogo_para_navegador(array $cat): array
             'id'         => (int) $id,
             'nombre'     => $p['nombre'],
             'desc'       => $p['descripcion'],
+            'img'        => url_imagen_producto($p['imagen'] ?? null),
             'precio'     => (float) $p['precio'],
             'disponible' => (int) $p['disponible'] === 1,
             'mitades'    => (int) $p['mitades'] === 1,

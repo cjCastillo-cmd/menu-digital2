@@ -16,13 +16,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $impuesto = decimal($_POST['impuesto'] ?? 0);
         $impuesto = max(0, min(1, $impuesto));
         consulta(
-            'UPDATE negocios SET nombre=?, tagline=?, whatsapp=?, moneda=?, impuesto=? WHERE id=?',
+            'UPDATE negocios
+                SET nombre=?, tagline=?, whatsapp=?, moneda=?, impuesto=?,
+                    color_fondo=?, color_acento=?
+              WHERE id=?',
             [
                 mb_substr(trim((string) ($_POST['nombre'] ?? '')), 0, 120),
                 mb_substr(trim((string) ($_POST['tagline'] ?? '')), 0, 180),
                 preg_replace('/\D/', '', (string) ($_POST['whatsapp'] ?? '')),
                 mb_substr(trim((string) ($_POST['moneda'] ?? 'L')), 0, 5),
                 $impuesto,
+                color_hex($_POST['color_fondo'] ?? null),
+                color_hex($_POST['color_acento'] ?? null),
                 $negocioId,
             ]
         );
@@ -107,6 +112,19 @@ cabecera_panel('Negocio', 'negocio', $negocio);
                value="<?= e($negocio['impuesto']) ?>">
       </div>
     </div>
+    <div class="dos">
+      <div class="campo">
+        <label class="campo__rotulo" for="color_fondo">Color de fondo (marca)</label>
+        <input id="color_fondo" name="color_fondo" type="color"
+               value="<?= e($negocio['color_fondo'] ?: '#211F1C') ?>" style="height:44px">
+      </div>
+      <div class="campo">
+        <label class="campo__rotulo" for="color_acento">Color de acento (marca)</label>
+        <input id="color_acento" name="color_acento" type="color"
+               value="<?= e($negocio['color_acento'] ?: '#E5B54A') ?>" style="height:44px">
+      </div>
+    </div>
+    <p class="ayuda">Con estos dos colores la carta se pinta con la identidad del negocio.</p>
     <div class="pie"><button class="accion" type="submit"><span>Guardar datos</span><span>&rarr;</span></button></div>
   </form>
 </div>

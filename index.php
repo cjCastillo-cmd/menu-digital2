@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/app/repo.php';
 
+// Arranca la sesion ANTES de imprimir HTML, para poder emitir el token CSRF.
+sesion();
+
 $slug    = isset($_GET['r']) ? trim((string) $_GET['r']) : NEGOCIO_POR_DEFECTO;
 $negocio = negocio_por_slug($slug);
 
@@ -50,6 +53,7 @@ $datosNavegador = [
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= url('assets/css/comanda.css') ?>">
+<?= estilo_marca($negocio) ?>
 </head>
 <body>
 
@@ -90,25 +94,32 @@ $datosNavegador = [
 
       <?php foreach ($items as $p):
           $agotado = (int) $p['disponible'] !== 1;
-          $desde   = !empty($p['grupos']) ? 'desde ' : ''; ?>
-        <button class="platillo" type="button" data-prod="<?= (int) $p['id'] ?>" <?= $agotado ? 'disabled' : '' ?>>
-          <div class="platillo__fila">
-            <span class="platillo__nombre"><?= e($p['nombre']) ?></span>
-            <span class="platillo__puntos"></span>
-            <span class="platillo__precio"><?= $desde . dinero($p['precio'], $negocio['moneda']) ?></span>
-          </div>
-          <?php if ($p['descripcion']): ?>
-            <p class="platillo__desc"><?= e($p['descripcion']) ?></p>
+          $desde   = !empty($p['grupos']) ? 'desde ' : '';
+          $foto    = url_imagen_producto($p['imagen'] ?? null); ?>
+        <button class="platillo<?= $foto ? ' platillo--foto' : '' ?>" type="button"
+                data-prod="<?= (int) $p['id'] ?>" <?= $agotado ? 'disabled' : '' ?>>
+          <?php if ($foto): ?>
+            <img class="platillo__foto" src="<?= e($foto) ?>" alt="" loading="lazy" width="88" height="88">
           <?php endif; ?>
-          <?php if ($agotado || (int) $p['destacado'] === 1 || $p['etiquetas']): ?>
-            <div class="platillo__marcas">
-              <?php if ($agotado): ?><span class="marca" style="color:var(--rojo);border-color:var(--rojo)">Agotado</span><?php endif; ?>
-              <?php if ((int) $p['destacado'] === 1): ?><span class="marca marca--favorito">Favorito</span><?php endif; ?>
-              <?php foreach (array_filter(explode(',', (string) $p['etiquetas'])) as $et): ?>
-                <span class="marca"><?= e(trim($et)) ?></span>
-              <?php endforeach; ?>
+          <div class="platillo__cuerpo">
+            <div class="platillo__fila">
+              <span class="platillo__nombre"><?= e($p['nombre']) ?></span>
+              <span class="platillo__puntos"></span>
+              <span class="platillo__precio"><?= $desde . dinero($p['precio'], $negocio['moneda']) ?></span>
             </div>
-          <?php endif; ?>
+            <?php if ($p['descripcion']): ?>
+              <p class="platillo__desc"><?= e($p['descripcion']) ?></p>
+            <?php endif; ?>
+            <?php if ($agotado || (int) $p['destacado'] === 1 || $p['etiquetas']): ?>
+              <div class="platillo__marcas">
+                <?php if ($agotado): ?><span class="marca" style="color:var(--rojo);border-color:var(--rojo)">Agotado</span><?php endif; ?>
+                <?php if ((int) $p['destacado'] === 1): ?><span class="marca marca--favorito">Favorito</span><?php endif; ?>
+                <?php foreach (array_filter(explode(',', (string) $p['etiquetas'])) as $et): ?>
+                  <span class="marca"><?= e(trim($et)) ?></span>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
+          </div>
         </button>
       <?php endforeach; ?>
     </section>
@@ -164,6 +175,7 @@ $datosNavegador = [
 
 <form id="formPedido" method="post" action="<?= url('pedido.php') ?>" style="display:none">
   <input type="hidden" name="r" value="<?= e($negocio['slug']) ?>">
+  <input type="hidden" name="token" value="<?= e(token()) ?>">
   <input type="hidden" name="carga" id="cargaPedido">
 </form>
 
