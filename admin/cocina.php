@@ -10,16 +10,35 @@ $estados = ['recibido' => 'Recibido', 'preparando' => 'Preparando',
 
 $siguiente = ['recibido' => 'preparando', 'preparando' => 'listo', 'listo' => 'entregado'];
 
+// Vista activa: comandas (cocina) o mesas (caja).
+$vista = (($_GET['vista'] ?? '') === 'mesas') ? 'mesas' : 'comandas';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verificar_token();
-    $id = entero($_POST['id'] ?? 0);
-    $nuevo = (string) ($_POST['estado'] ?? '');
+    $accion  = (string) ($_POST['accion'] ?? 'estado');
+    $volverA = (($_POST['vista'] ?? '') === 'mesas') ? 'mesas' : 'comandas';
 
-    if (isset($estados[$nuevo]) && $id > 0) {
-        consulta('UPDATE pedidos SET estado = ? WHERE id = ? AND negocio_id = ?',
-                 [$nuevo, $id, $negocioId]);
+    if ($accion === 'cerrar_mesa') {
+        // Caja cobra la mesa: cierra todos sus pedidos activos.
+        $mesa = mb_substr(trim((string) ($_POST['mesa'] ?? '')), 0, 10);
+        if ($mesa !== '') {
+            consulta(
+                "UPDATE pedidos SET estado = 'entregado'
+                  WHERE negocio_id = ? AND mesa = ?
+                    AND estado IN ('recibido','preparando','listo')",
+                [$negocioId, $mesa]
+            );
+        }
+    } else {
+        // Cambio de estado de un pedido.
+        $id = entero($_POST['id'] ?? 0);
+        $nuevo = (string) ($_POST['estado'] ?? '');
+        if (isset($estados[$nuevo]) && $id > 0) {
+            consulta('UPDATE pedidos SET estado = ? WHERE id = ? AND negocio_id = ?',
+                     [$nuevo, $id, $negocioId]);
+        }
     }
-    ir('admin/cocina.php');
+    ir('admin/cocina.php?vista=' . $volverA);
 }
 
 $abiertos = todas(
@@ -38,7 +57,7 @@ $cerrados = todas(
     [$negocioId]
 );
 
-$ids = array_map(function ($p) { return (int) $p['id']; }, array_merge($abiertos, $cerrados));
+$ids = array_map(static function ($p) { return (int) $p['id']; }, array_merge($abiertos, $cerrados));
 $lineasPorPedido = [];
 if ($ids) {
     $lista = implode(',', $ids);
@@ -47,83 +66,168 @@ if ($ids) {
     }
 }
 
+// Agrupar los pedidos de mesa por numero de mesa (para la vista de caja).
+$porMesa = [];
+foreach ($abiertos as $p) {
+    if ($p['modo'] === 'mesa' && trim((string) $p['mesa']) !== '') {
+        $porMesa[(string) $p['mesa']][] = $p;
+    }
+}
+uksort($porMesa, 'strnatcasecmp');
+
+$modos = ['mesa' => 'En mesa', 'llevar' => 'Para llevar', 'domicilio' => 'Domicilio'];
+
+/** Pinta las lineas de un pedido. */
+function pintar_lineas(array $lineas): void
+{
+    foreach ($lineas as $l) { ?>
+      <div style="margin-bottom:7px">
+        <strong><?= (int) $l['cantidad'] ?>x <?= e($l['nombre']) ?></strong>
+        <?php if ($l['detalle']): ?>
+          <div style="font-size:11px;opacity:.75;white-space:pre-line"><?= e($l['detalle']) ?></div>
+        <?php endif; ?>
+        <?php if ($l['nota']): ?>
+          <div style="font-size:11px;opacity:.75">Nota: <?= e($l['nota']) ?></div>
+        <?php endif; ?>
+      </div>
+    <?php }
+}
+
 cabecera_panel('Cocina', 'cocina', $negocio);
 ?>
 
-<div class="bloque">
-  <h2>En curso</h2>
-  <p class="ayuda">
-    <?= count($abiertos) ?> pedidos abiertos. La pantalla se refresca sola cada 25 segundos.
-  </p>
-
-  <?php if (!$abiertos): ?>
-    <div class="vacio">Ningún pedido en curso.<br>Los nuevos aparecen aquí solos.</div>
-  <?php else: ?>
-    <div class="comandas">
-      <?php foreach ($abiertos as $p):
-          $modo = ['mesa' => 'En mesa', 'llevar' => 'Para llevar', 'domicilio' => 'Domicilio'];
-          $sig  = $siguiente[$p['estado']] ?? null; ?>
-        <article class="comanda">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-            <span class="comanda__codigo"><?= e($p['codigo']) ?></span>
-            <span class="comanda__meta"><?= date('H:i', strtotime($p['creado'])) ?></span>
-          </div>
-          <div class="comanda__meta">
-            <?= e($modo[$p['modo']] ?? $p['modo']) ?>
-            <?= $p['mesa'] ? ' · mesa ' . e($p['mesa']) : '' ?>
-            <?= $p['zona'] ? ' · ' . e($p['zona']) : '' ?>
-          </div>
-          <div class="comanda__meta"><?= e($estados[$p['estado']]) ?></div>
-
-          <div class="comanda__lineas">
-            <?php foreach ($lineasPorPedido[(int) $p['id']] ?? [] as $l): ?>
-              <div style="margin-bottom:7px">
-                <strong><?= (int) $l['cantidad'] ?>x <?= e($l['nombre']) ?></strong>
-                <?php if ($l['detalle']): ?>
-                  <div style="font-size:11px;opacity:.75;white-space:pre-line"><?= e($l['detalle']) ?></div>
-                <?php endif; ?>
-                <?php if ($l['nota']): ?>
-                  <div style="font-size:11px;opacity:.75">Nota: <?= e($l['nota']) ?></div>
-                <?php endif; ?>
-              </div>
-            <?php endforeach; ?>
-          </div>
-
-          <div style="display:flex;justify-content:space-between;font-weight:600">
-            <span>Total</span><span><?= dinero($p['total'], $negocio['moneda']) ?></span>
-          </div>
-
-          <?php if ($p['cliente'] || $p['telefono']): ?>
-            <div class="comanda__meta" style="margin-top:6px">
-              <?= e($p['cliente']) ?><?= $p['telefono'] ? ' · ' . e($p['telefono']) : '' ?>
-            </div>
-          <?php endif; ?>
-          <?php if ($p['direccion']): ?>
-            <div class="comanda__meta" style="margin-top:4px"><?= e($p['direccion']) ?></div>
-          <?php endif; ?>
-
-          <div class="comanda__acciones">
-            <?php if ($sig): ?>
-              <form method="post" style="flex:1">
-                <input type="hidden" name="token" value="<?= e(token()) ?>">
-                <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
-                <input type="hidden" name="estado" value="<?= e($sig) ?>">
-                <button type="submit" style="width:100%"><?= e($estados[$sig]) ?></button>
-              </form>
-            <?php endif; ?>
-            <form method="post" style="flex:1"
-                  onsubmit="return confirm('¿Anular el pedido <?= e($p['codigo']) ?>?')">
-              <input type="hidden" name="token" value="<?= e(token()) ?>">
-              <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
-              <input type="hidden" name="estado" value="anulado">
-              <button type="submit" style="width:100%">Anular</button>
-            </form>
-          </div>
-        </article>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  <a class="mini <?= $vista === 'comandas' ? 'mini--activo' : '' ?>"
+     href="<?= url('admin/cocina.php?vista=comandas') ?>">Comandas (<?= count($abiertos) ?>)</a>
+  <a class="mini <?= $vista === 'mesas' ? 'mini--activo' : '' ?>"
+     href="<?= url('admin/cocina.php?vista=mesas') ?>">Por mesa (<?= count($porMesa) ?>)</a>
 </div>
+
+<?php if ($vista === 'comandas'): ?>
+
+  <div class="bloque">
+    <h2>En curso</h2>
+    <p class="ayuda">
+      <?= count($abiertos) ?> pedidos abiertos. La pantalla se refresca sola cada 25 segundos.
+    </p>
+
+    <?php if (!$abiertos): ?>
+      <div class="vacio">Ningún pedido en curso.<br>Los nuevos aparecen aquí solos.</div>
+    <?php else: ?>
+      <div class="comandas">
+        <?php foreach ($abiertos as $p): $sig = $siguiente[$p['estado']] ?? null; ?>
+          <article class="comanda">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+              <span class="comanda__codigo"><?= e($p['codigo']) ?></span>
+              <span class="comanda__meta"><?= date('H:i', strtotime($p['creado'])) ?></span>
+            </div>
+            <div class="comanda__meta">
+              <?= e($modos[$p['modo']] ?? $p['modo']) ?>
+              <?= $p['mesa'] ? ' · mesa ' . e($p['mesa']) : '' ?>
+              <?= $p['zona'] ? ' · ' . e($p['zona']) : '' ?>
+            </div>
+            <div class="comanda__meta"><?= e($estados[$p['estado']]) ?></div>
+
+            <div class="comanda__lineas"><?php pintar_lineas($lineasPorPedido[(int) $p['id']] ?? []); ?></div>
+
+            <div style="display:flex;justify-content:space-between;font-weight:600">
+              <span>Total</span><span><?= dinero($p['total'], $negocio['moneda']) ?></span>
+            </div>
+
+            <?php if ($p['cliente'] || $p['telefono']): ?>
+              <div class="comanda__meta" style="margin-top:6px">
+                <?= e($p['cliente']) ?><?= $p['telefono'] ? ' · ' . e($p['telefono']) : '' ?>
+              </div>
+            <?php endif; ?>
+            <?php if ($p['direccion']): ?>
+              <div class="comanda__meta" style="margin-top:4px"><?= e($p['direccion']) ?></div>
+            <?php endif; ?>
+
+            <div class="comanda__acciones">
+              <?php if ($sig): ?>
+                <form method="post" style="flex:1">
+                  <input type="hidden" name="token" value="<?= e(token()) ?>">
+                  <input type="hidden" name="vista" value="comandas">
+                  <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+                  <input type="hidden" name="estado" value="<?= e($sig) ?>">
+                  <button type="submit" style="width:100%"><?= e($estados[$sig]) ?></button>
+                </form>
+              <?php endif; ?>
+              <form method="post" style="flex:1"
+                    onsubmit="return confirm('¿Anular el pedido <?= e($p['codigo']) ?>?')">
+                <input type="hidden" name="token" value="<?= e(token()) ?>">
+                <input type="hidden" name="vista" value="comandas">
+                <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+                <input type="hidden" name="estado" value="anulado">
+                <button type="submit" style="width:100%">Anular</button>
+              </form>
+            </div>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </div>
+
+<?php else: /* ---------- Vista por mesa (caja) ---------- */ ?>
+
+  <div class="bloque">
+    <h2>Mesas abiertas</h2>
+    <p class="ayuda">
+      Cada mesa junta todos sus pedidos y su total. Cuando el cliente paga,
+      tocá "Cobrar y cerrar mesa" para dejarla libre.
+    </p>
+  </div>
+
+  <?php if (!$porMesa): ?>
+    <div class="vacio">Ninguna mesa con pedidos.<br>Cuando alguien pida desde su mesa, aparece aquí.</div>
+  <?php else: ?>
+    <?php foreach ($porMesa as $mesa => $pedidos):
+        $totalMesa = 0.0;
+        foreach ($pedidos as $pp) { $totalMesa += (float) $pp['total']; } ?>
+      <div class="bloque">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+          <h2 style="margin:0">Mesa <?= e($mesa) ?></h2>
+          <span class="comanda__codigo"><?= dinero($totalMesa, $negocio['moneda']) ?></span>
+        </div>
+        <p class="ayuda" style="margin:4px 0 14px"><?= count($pedidos) ?> pedido(s) en esta mesa.</p>
+
+        <?php foreach ($pedidos as $p): $sig = $siguiente[$p['estado']] ?? null; ?>
+          <div style="border:1px dashed var(--linea);border-radius:var(--r);padding:12px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+              <span class="comanda__codigo" style="font-size:13px"><?= e($p['codigo']) ?> · <?= e($estados[$p['estado']]) ?></span>
+              <span class="comanda__meta"><?= date('H:i', strtotime($p['creado'])) ?> · <?= dinero($p['total'], $negocio['moneda']) ?></span>
+            </div>
+            <div style="margin-top:8px"><?php pintar_lineas($lineasPorPedido[(int) $p['id']] ?? []); ?></div>
+            <div class="comanda__acciones">
+              <?php if ($sig): ?>
+                <form method="post" style="flex:1">
+                  <input type="hidden" name="token" value="<?= e(token()) ?>">
+                  <input type="hidden" name="vista" value="mesas">
+                  <input type="hidden" name="id" value="<?= (int) $p['id'] ?>">
+                  <input type="hidden" name="estado" value="<?= e($sig) ?>">
+                  <button type="submit" style="width:100%"><?= e($estados[$sig]) ?></button>
+                </form>
+              <?php endif; ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
+
+        <form method="post" style="margin-top:6px"
+              onsubmit="return confirm('¿Cobrar y cerrar la mesa <?= e($mesa) ?>? Sus pedidos pasan a entregado.')">
+          <input type="hidden" name="token" value="<?= e(token()) ?>">
+          <input type="hidden" name="accion" value="cerrar_mesa">
+          <input type="hidden" name="vista" value="mesas">
+          <input type="hidden" name="mesa" value="<?= e($mesa) ?>">
+          <button class="accion" type="submit" style="width:100%">
+            <span>Cobrar y cerrar mesa <?= e($mesa) ?></span>
+            <span><?= dinero($totalMesa, $negocio['moneda']) ?></span>
+          </button>
+        </form>
+      </div>
+    <?php endforeach; ?>
+  <?php endif; ?>
+
+<?php endif; ?>
 
 <?php if ($cerrados): ?>
 <div class="bloque">
@@ -136,7 +240,7 @@ cabecera_panel('Cocina', 'cocina', $negocio);
         <tr>
           <td><?= e($p['codigo']) ?></td>
           <td><?= date('H:i', strtotime($p['creado'])) ?></td>
-          <td><?= e($p['modo']) ?><?= $p['mesa'] ? ' ' . e($p['mesa']) : '' ?></td>
+          <td><?= e($modos[$p['modo']] ?? $p['modo']) ?><?= $p['mesa'] ? ' ' . e($p['mesa']) : '' ?></td>
           <td><?= e($estados[$p['estado']]) ?></td>
           <td><?= dinero($p['total'], $negocio['moneda']) ?></td>
         </tr>
